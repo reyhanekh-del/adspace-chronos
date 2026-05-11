@@ -20,6 +20,7 @@ import {
   Trash2,
   CalendarOff,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ type Props = {
   screen: Screen | null;
   onChange: (b: ScheduleBlock) => void;
   onDelete: (id: string) => void;
+  onEdit: (b: ScheduleBlock) => void;
 };
 
 export function DetailPanel({ block, screen, onChange, onDelete }: Props) {
