@@ -30,6 +30,8 @@ function Dashboard() {
     pending: { id: string; screenId: string; startHour: number };
     conflicting: ScheduleBlock[];
   } | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorInitial, setEditorInitial] = useState<ScheduleBlock | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
