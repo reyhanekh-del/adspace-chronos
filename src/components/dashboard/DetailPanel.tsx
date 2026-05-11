@@ -32,7 +32,7 @@ type Props = {
   onEdit: (b: ScheduleBlock) => void;
 };
 
-export function DetailPanel({ block, screen, onChange, onDelete }: Props) {
+export function DetailPanel({ block, screen, onChange, onDelete, onEdit }: Props) {
   return (
     <aside className="w-[340px] shrink-0 border-l bg-card flex flex-col h-full">
       <div className="px-5 py-4 border-b flex items-center justify-between">
