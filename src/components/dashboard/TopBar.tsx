@@ -19,9 +19,10 @@ type Props = {
   dark: boolean;
   onToggleDark: () => void;
   conflicts: number;
+  onNew: () => void;
 };
 
-export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conflicts }: Props) {
+export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conflicts, onNew }: Props) {
   const dateLabel = date.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
