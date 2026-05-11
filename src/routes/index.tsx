@@ -160,8 +160,26 @@ function Dashboard() {
             setBlocks((prev) => prev.filter((b) => b.id !== id));
             setSelectedId(null);
           }}
+          onEdit={(b) => {
+            setEditorInitial(b);
+            setEditorOpen(true);
+          }}
         />
       </div>
+
+      <ScheduleModal
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        initial={editorInitial}
+        screens={allScreens}
+        onSave={(block) => {
+          setBlocks((prev) => {
+            const exists = prev.some((b) => b.id === block.id);
+            return exists ? prev.map((b) => (b.id === block.id ? block : b)) : [...prev, block];
+          });
+          setSelectedId(block.id);
+        }}
+      />
 
       <ConflictModal
         open={!!conflict}
