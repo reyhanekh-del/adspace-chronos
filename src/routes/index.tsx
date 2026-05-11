@@ -5,6 +5,7 @@ import { Timeline } from "@/components/dashboard/Timeline";
 import { DetailPanel } from "@/components/dashboard/DetailPanel";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ConflictModal } from "@/components/dashboard/ConflictModal";
+import { ScheduleModal } from "@/components/dashboard/ScheduleModal";
 import {
   initialBlocks,
   locations,
@@ -29,6 +30,8 @@ function Dashboard() {
     pending: { id: string; screenId: string; startHour: number };
     conflicting: ScheduleBlock[];
   } | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorInitial, setEditorInitial] = useState<ScheduleBlock | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -116,6 +119,10 @@ function Dashboard() {
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}
         conflicts={conflictsCount}
+        onNew={() => {
+          setEditorInitial(null);
+          setEditorOpen(true);
+        }}
       />
       <div className="flex flex-1 min-h-0">
         <FilterSidebar
@@ -153,8 +160,26 @@ function Dashboard() {
             setBlocks((prev) => prev.filter((b) => b.id !== id));
             setSelectedId(null);
           }}
+          onEdit={(b) => {
+            setEditorInitial(b);
+            setEditorOpen(true);
+          }}
         />
       </div>
+
+      <ScheduleModal
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        initial={editorInitial}
+        screens={allScreens}
+        onSave={(block) => {
+          setBlocks((prev) => {
+            const exists = prev.some((b) => b.id === block.id);
+            return exists ? prev.map((b) => (b.id === block.id ? block : b)) : [...prev, block];
+          });
+          setSelectedId(block.id);
+        }}
+      />
 
       <ConflictModal
         open={!!conflict}

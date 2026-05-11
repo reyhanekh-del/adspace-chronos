@@ -20,6 +20,7 @@ import {
   Trash2,
   CalendarOff,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,9 +29,10 @@ type Props = {
   screen: Screen | null;
   onChange: (b: ScheduleBlock) => void;
   onDelete: (id: string) => void;
+  onEdit: (b: ScheduleBlock) => void;
 };
 
-export function DetailPanel({ block, screen, onChange, onDelete }: Props) {
+export function DetailPanel({ block, screen, onChange, onDelete, onEdit }: Props) {
   return (
     <aside className="w-[340px] shrink-0 border-l bg-card flex flex-col h-full">
       <div className="px-5 py-4 border-b flex items-center justify-between">
@@ -185,8 +187,8 @@ export function DetailPanel({ block, screen, onChange, onDelete }: Props) {
               <Button variant="outline" className="flex-1">
                 <CalendarOff className="h-4 w-4 mr-1.5" /> Block
               </Button>
-              <Button className="flex-1">
-                <Calendar className="h-4 w-4 mr-1.5" /> Save
+              <Button className="flex-1" onClick={() => onEdit(block)}>
+                <Pencil className="h-4 w-4 mr-1.5" /> Edit
               </Button>
             </div>
           </div>

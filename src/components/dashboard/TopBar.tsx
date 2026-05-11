@@ -19,9 +19,10 @@ type Props = {
   dark: boolean;
   onToggleDark: () => void;
   conflicts: number;
+  onNew: () => void;
 };
 
-export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conflicts }: Props) {
+export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conflicts, onNew }: Props) {
   const dateLabel = date.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -70,7 +71,7 @@ export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conf
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleDark}>
           {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
-        <Button size="sm" className="h-8 ml-1">
+        <Button size="sm" className="h-8 ml-1" onClick={onNew}>
           <Plus className="h-4 w-4 mr-1" />
           New schedule
         </Button>
