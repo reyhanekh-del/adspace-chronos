@@ -5,6 +5,7 @@ import { Timeline } from "@/components/dashboard/Timeline";
 import { DetailPanel } from "@/components/dashboard/DetailPanel";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ConflictModal } from "@/components/dashboard/ConflictModal";
+import { ScheduleModal } from "@/components/dashboard/ScheduleModal";
 import {
   initialBlocks,
   locations,
