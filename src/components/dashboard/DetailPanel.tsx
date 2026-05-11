@@ -187,8 +187,8 @@ export function DetailPanel({ block, screen, onChange, onDelete, onEdit }: Props
               <Button variant="outline" className="flex-1">
                 <CalendarOff className="h-4 w-4 mr-1.5" /> Block
               </Button>
-              <Button className="flex-1">
-                <Calendar className="h-4 w-4 mr-1.5" /> Save
+              <Button className="flex-1" onClick={() => onEdit(block)}>
+                <Pencil className="h-4 w-4 mr-1.5" /> Edit
               </Button>
             </div>
           </div>
