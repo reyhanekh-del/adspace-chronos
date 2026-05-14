@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { FilterSidebar } from "@/components/dashboard/FilterSidebar";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DetailPanel } from "@/components/dashboard/DetailPanel";
-import { TopBar } from "@/components/dashboard/TopBar";
+import { TopBar, startOfWeek, type CalendarView } from "@/components/dashboard/TopBar";
 import { ConflictModal } from "@/components/dashboard/ConflictModal";
 import { ScheduleModal } from "@/components/dashboard/ScheduleModal";
+import { WeekView } from "@/components/dashboard/WeekView";
+import { MonthView } from "@/components/dashboard/MonthView";
 import {
   initialBlocks,
   locations,
@@ -26,6 +28,7 @@ function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>("b2");
   const [date, setDate] = useState(new Date(2026, 4, 7));
   const [dark, setDark] = useState(false);
+  const [view, setView] = useState<CalendarView>("day");
   const [conflict, setConflict] = useState<{
     pending: { id: string; screenId: string; startHour: number };
     conflicting: ScheduleBlock[];
@@ -113,8 +116,10 @@ function Dashboard() {
     <div className="h-screen w-full flex flex-col bg-background text-foreground overflow-hidden">
       <TopBar
         date={date}
-        onPrev={() => setDate(new Date(date.getTime() - 86400000))}
-        onNext={() => setDate(new Date(date.getTime() + 86400000))}
+        view={view}
+        onViewChange={setView}
+        onPrev={() => setDate(stepDate(date, view, -1))}
+        onNext={() => setDate(stepDate(date, view, 1))}
         onToday={() => setDate(new Date())}
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}
@@ -143,13 +148,38 @@ function Dashboard() {
           query={query}
           onQuery={setQuery}
         />
-        <Timeline
-          screens={visibleScreens}
-          blocks={visibleBlocks}
-          selectedId={selectedId}
-          onSelect={(b) => setSelectedId(b.id)}
-          onMove={handleMove}
-        />
+        {view === "day" && (
+          <Timeline
+            screens={visibleScreens}
+            blocks={visibleBlocks}
+            selectedId={selectedId}
+            onSelect={(b) => setSelectedId(b.id)}
+            onMove={handleMove}
+          />
+        )}
+        {view === "week" && (
+          <WeekView
+            weekStart={startOfWeek(date)}
+            screens={visibleScreens}
+            blocks={visibleBlocks}
+            selectedId={selectedId}
+            onSelect={(b) => setSelectedId(b.id)}
+            onPickDay={(d) => {
+              setDate(d);
+              setView("day");
+            }}
+          />
+        )}
+        {view === "month" && (
+          <MonthView
+            monthDate={date}
+            blocks={visibleBlocks}
+            onPickDay={(d) => {
+              setDate(d);
+              setView("day");
+            }}
+          />
+        )}
         <DetailPanel
           block={selectedBlock}
           screen={selectedScreen}
@@ -198,4 +228,12 @@ function Dashboard() {
       />
     </div>
   );
+}
+
+function stepDate(date: Date, view: CalendarView, dir: number): Date {
+  const d = new Date(date);
+  if (view === "month") d.setMonth(d.getMonth() + dir);
+  else if (view === "week") d.setDate(d.getDate() + 7 * dir);
+  else d.setDate(d.getDate() + dir);
+  return d;
 }
