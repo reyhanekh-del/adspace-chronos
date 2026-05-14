@@ -23,13 +23,16 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { ScheduleBlock, Screen } from "@/lib/schedule-data";
-import { Layers, Tv, Calendar } from "lucide-react";
+import { Layers, Tv, Calendar, Repeat, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial: ScheduleBlock | null;
   screens: Screen[];
+  existingBlocks?: ScheduleBlock[];
+  anchorDate?: Date;
   onSave: (block: ScheduleBlock) => void;
 };
 
