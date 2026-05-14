@@ -305,6 +305,90 @@ export function ScheduleModal({ open, onOpenChange, initial, screens, existingBl
               </div>
             </div>
           )}
+
+          {/* Recurrence preview */}
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+                Recurrence preview
+              </div>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {occurrences.length} {occurrences.length === 1 ? "instance" : "instances"}
+                {form.recurring !== "none" && " · next 8"}
+              </span>
+            </div>
+
+            {form.recurring === "none" ? (
+              <p className="text-xs text-muted-foreground">
+                Single booking — enable recurrence above to preview generated instances.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {occurrences.map((d, i) => (
+                  <div
+                    key={d.toISOString()}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors",
+                      baseConflict
+                        ? "bg-destructive/10 border border-destructive/30"
+                        : "bg-background/60 border border-border/60"
+                    )}
+                  >
+                    <span className="w-8 font-mono tabular-nums text-muted-foreground">
+                      {WEEKDAY[d.getDay()]}
+                    </span>
+                    <span className="w-20 font-mono tabular-nums">
+                      {d.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}
+                    </span>
+
+                    {/* Mini 24h timeline */}
+                    <div className="relative flex-1 h-4 rounded bg-muted overflow-hidden">
+                      {[6, 12, 18].map((h) => (
+                        <div
+                          key={h}
+                          className="absolute top-0 bottom-0 w-px bg-border"
+                          style={{ left: `${(h / 24) * 100}%` }}
+                        />
+                      ))}
+                      <div
+                        className={cn(
+                          "absolute top-0 bottom-0 rounded-sm",
+                          baseConflict
+                            ? "bg-destructive"
+                            : form.type === "program"
+                              ? "bg-slot-program"
+                              : "bg-slot-adpack",
+                          i === 0 && "ring-1 ring-primary/60"
+                        )}
+                        style={{
+                          left: `${(startHour / 24) * 100}%`,
+                          width: `${Math.max(2, ((endHour - startHour) / 24) * 100)}%`,
+                        }}
+                      />
+                    </div>
+
+                    <span className="w-24 text-right font-mono tabular-nums text-muted-foreground">
+                      {form.start}–{form.end}
+                    </span>
+
+                    {baseConflict ? (
+                      <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />
+                    ) : (
+                      <span className="h-3 w-3 shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {baseConflict && form.recurring !== "none" && (
+              <p className="text-[11px] text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Each instance overlaps an existing booking on the selected screen.
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
