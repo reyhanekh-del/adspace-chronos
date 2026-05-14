@@ -11,8 +11,12 @@ import {
   Filter,
 } from "lucide-react";
 
+export type CalendarView = "day" | "week" | "month";
+
 type Props = {
   date: Date;
+  view: CalendarView;
+  onViewChange: (v: CalendarView) => void;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -22,13 +26,41 @@ type Props = {
   onNew: () => void;
 };
 
-export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conflicts, onNew }: Props) {
-  const dateLabel = date.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+export function TopBar({
+  date,
+  view,
+  onViewChange,
+  onPrev,
+  onNext,
+  onToday,
+  dark,
+  onToggleDark,
+  conflicts,
+  onNew,
+}: Props) {
+  const dateLabel =
+    view === "month"
+      ? date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+      : view === "week"
+        ? (() => {
+            const start = startOfWeek(date);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            const sameMonth = start.getMonth() === end.getMonth();
+            const left = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            const right = end.toLocaleDateString("en-US", {
+              month: sameMonth ? undefined : "short",
+              day: "numeric",
+              year: "numeric",
+            });
+            return `${left} – ${right}`;
+          })()
+        : date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
 
   return (
     <header className="h-14 border-b bg-card/60 backdrop-blur flex items-center justify-between px-5 shrink-0">
@@ -48,10 +80,18 @@ export function TopBar({ date, onPrev, onNext, onToday, dark, onToggleDark, conf
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <h1 className="font-display text-lg font-semibold">{dateLabel}</h1>
         </div>
-        <div className="hidden md:flex items-center gap-1 ml-2">
-          <Button variant="secondary" size="sm" className="h-7 text-xs">Day</Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">Week</Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">Month</Button>
+        <div className="hidden md:flex items-center gap-1 ml-2 rounded-md border bg-background p-0.5">
+          {(["day", "week", "month"] as const).map((v) => (
+            <Button
+              key={v}
+              variant={view === v ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 px-2.5 text-xs capitalize"
+              onClick={() => onViewChange(v)}
+            >
+              {v}
+            </Button>
+          ))}
         </div>
       </div>
 
