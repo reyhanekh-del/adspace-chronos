@@ -229,3 +229,11 @@ function Dashboard() {
     </div>
   );
 }
+
+function stepDate(date: Date, view: CalendarView, dir: number): Date {
+  const d = new Date(date);
+  if (view === "month") d.setMonth(d.getMonth() + dir);
+  else if (view === "week") d.setDate(d.getDate() + 7 * dir);
+  else d.setDate(d.getDate() + dir);
+  return d;
+}
