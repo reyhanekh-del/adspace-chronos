@@ -28,6 +28,7 @@ function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>("b2");
   const [date, setDate] = useState(new Date(2026, 4, 7));
   const [dark, setDark] = useState(false);
+  const [view, setView] = useState<CalendarView>("day");
   const [conflict, setConflict] = useState<{
     pending: { id: string; screenId: string; startHour: number };
     conflicting: ScheduleBlock[];
