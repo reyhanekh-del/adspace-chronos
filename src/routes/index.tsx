@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { FilterSidebar } from "@/components/dashboard/FilterSidebar";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DetailPanel } from "@/components/dashboard/DetailPanel";
-import { TopBar } from "@/components/dashboard/TopBar";
+import { TopBar, startOfWeek, type CalendarView } from "@/components/dashboard/TopBar";
 import { ConflictModal } from "@/components/dashboard/ConflictModal";
 import { ScheduleModal } from "@/components/dashboard/ScheduleModal";
+import { WeekView } from "@/components/dashboard/WeekView";
+import { MonthView } from "@/components/dashboard/MonthView";
 import {
   initialBlocks,
   locations,
