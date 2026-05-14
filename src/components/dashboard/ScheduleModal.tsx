@@ -73,7 +73,7 @@ const empty = (screenId: string): Form => ({
   filledSlots: 0,
 });
 
-export function ScheduleModal({ open, onOpenChange, initial, screens, onSave }: Props) {
+export function ScheduleModal({ open, onOpenChange, initial, screens, existingBlocks = [], anchorDate, onSave }: Props) {
   const [form, setForm] = useState<Form>(empty(screens[0]?.id ?? ""));
   const isEdit = !!initial;
 
