@@ -126,9 +126,23 @@ export function ScheduleModal({ open, onOpenChange, initial, screens, existingBl
     onOpenChange(false);
   };
 
+  const occurrences = buildOccurrences(
+    anchorDate ?? new Date(),
+    form.recurring,
+    8
+  );
+  const baseConflict = existingBlocks.some(
+    (b) =>
+      b.id !== initial?.id &&
+      b.screenId === form.screenId &&
+      b.status !== "blocked" &&
+      startHour < b.endHour &&
+      endHour > b.startHour
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display flex items-center gap-2">
             <Calendar className="h-4 w-4" />
