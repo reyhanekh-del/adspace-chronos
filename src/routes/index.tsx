@@ -172,6 +172,8 @@ function Dashboard() {
         onOpenChange={setEditorOpen}
         initial={editorInitial}
         screens={allScreens}
+        existingBlocks={blocks}
+        anchorDate={date}
         onSave={(block) => {
           setBlocks((prev) => {
             const exists = prev.some((b) => b.id === block.id);
