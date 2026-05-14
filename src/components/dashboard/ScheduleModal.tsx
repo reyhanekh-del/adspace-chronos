@@ -47,6 +47,31 @@ const timeToHour = (t: string) => {
   return (h || 0) + (m || 0) / 60;
 };
 
+type Recurrence = "none" | "daily" | "weekdays" | "weekly";
+
+function buildOccurrences(anchor: Date, rule: Recurrence, count: number): Date[] {
+  const out: Date[] = [];
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+  if (rule === "none") return [start];
+  let cursor = new Date(start);
+  let safety = 0;
+  while (out.length < count && safety < 365) {
+    const day = cursor.getDay();
+    const ok =
+      rule === "daily" ||
+      rule === "weekly" ||
+      (rule === "weekdays" && day >= 1 && day <= 5);
+    if (ok) out.push(new Date(cursor));
+    const stepDays = rule === "weekly" ? 7 : 1;
+    cursor = new Date(cursor.getTime() + stepDays * 86400000);
+    safety++;
+  }
+  return out;
+}
+
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+
 type Form = {
   title: string;
   type: "program" | "adpack";
