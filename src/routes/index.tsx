@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FilterSidebar } from "@/components/dashboard/FilterSidebar";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DetailPanel } from "@/components/dashboard/DetailPanel";
 import { TopBar, startOfWeek, type CalendarView } from "@/components/dashboard/TopBar";
@@ -25,7 +24,7 @@ function Dashboard() {
   const [selectedLocations, setSelectedLocations] = useState<string[]>(locations);
   const [selectedTypes, setSelectedTypes] = useState<("program" | "adpack")[]>(["program", "adpack"]);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>("b2");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [date, setDate] = useState(new Date(2026, 4, 7));
   const [dark, setDark] = useState(false);
   const [view, setView] = useState<CalendarView>("day");
@@ -61,12 +60,20 @@ function Dashboard() {
     [blocks, selectedTypes, visibleScreens, query]
   );
 
+  const conflictsCount = blocks.filter((b) => b.status === "conflict").length;
+
   const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null;
   const selectedScreen = selectedBlock
     ? allScreens.find((s) => s.id === selectedBlock.screenId) ?? null
     : null;
 
-  const conflictsCount = blocks.filter((b) => b.status === "conflict").length;
+  const selectBlock = (b: ScheduleBlock) => setSelectedId(b.id);
+
+  useEffect(() => {
+    if (selectedId && !visibleBlocks.some((b) => b.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [visibleBlocks, selectedId]);
 
   const handleMove = (id: string, screenId: string, startHour: number) => {
     const target = blocks.find((b) => b.id === id);
@@ -78,6 +85,7 @@ function Dashboard() {
       (b) =>
         b.id !== id &&
         b.screenId === screenId &&
+        b.type === target.type &&
         b.status !== "blocked" &&
         startHour < b.endHour &&
         newEnd > b.startHour
@@ -128,32 +136,30 @@ function Dashboard() {
           setEditorInitial(null);
           setEditorOpen(true);
         }}
+        screens={allScreens}
+        locations={locations}
+        selectedScreens={selectedScreens}
+        selectedLocations={selectedLocations}
+        selectedTypes={selectedTypes}
+        onToggleScreen={(id) =>
+          setSelectedScreens((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+        }
+        onToggleLocation={(loc) =>
+          setSelectedLocations((p) => (p.includes(loc) ? p.filter((x) => x !== loc) : [...p, loc]))
+        }
+        onToggleType={(t) =>
+          setSelectedTypes((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]))
+        }
+        query={query}
+        onQuery={setQuery}
       />
-      <div className="flex flex-1 min-h-0">
-        <FilterSidebar
-          screens={allScreens}
-          locations={locations}
-          selectedScreens={selectedScreens}
-          selectedLocations={selectedLocations}
-          selectedTypes={selectedTypes}
-          onToggleScreen={(id) =>
-            setSelectedScreens((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
-          }
-          onToggleLocation={(loc) =>
-            setSelectedLocations((p) => (p.includes(loc) ? p.filter((x) => x !== loc) : [...p, loc]))
-          }
-          onToggleType={(t) =>
-            setSelectedTypes((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]))
-          }
-          query={query}
-          onQuery={setQuery}
-        />
+      <div className="flex flex-1 min-h-0 min-w-0">
         {view === "day" && (
           <Timeline
             screens={visibleScreens}
             blocks={visibleBlocks}
             selectedId={selectedId}
-            onSelect={(b) => setSelectedId(b.id)}
+            onSelect={selectBlock}
             onMove={handleMove}
           />
         )}
@@ -163,7 +169,7 @@ function Dashboard() {
             screens={visibleScreens}
             blocks={visibleBlocks}
             selectedId={selectedId}
-            onSelect={(b) => setSelectedId(b.id)}
+            onSelect={selectBlock}
             onPickDay={(d) => {
               setDate(d);
               setView("day");
@@ -180,21 +186,24 @@ function Dashboard() {
             }}
           />
         )}
-        <DetailPanel
-          block={selectedBlock}
-          screen={selectedScreen}
-          onChange={(updated) =>
-            setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
-          }
-          onDelete={(id) => {
-            setBlocks((prev) => prev.filter((b) => b.id !== id));
-            setSelectedId(null);
-          }}
-          onEdit={(b) => {
-            setEditorInitial(b);
-            setEditorOpen(true);
-          }}
-        />
+        {selectedBlock && (
+          <DetailPanel
+            block={selectedBlock}
+            screen={selectedScreen}
+            onClose={() => setSelectedId(null)}
+            onChange={(updated) =>
+              setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+            }
+            onDelete={(id) => {
+              setBlocks((prev) => prev.filter((b) => b.id !== id));
+              setSelectedId(null);
+            }}
+            onEdit={(b) => {
+              setEditorInitial(b);
+              setEditorOpen(true);
+            }}
+          />
+        )}
       </div>
 
       <ScheduleModal

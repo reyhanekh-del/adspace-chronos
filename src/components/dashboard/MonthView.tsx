@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { ScheduleBlock } from "@/lib/schedule-data";
+import { blockAppearsOnDate } from "@/lib/program-schedule";
 import { AlertTriangle } from "lucide-react";
 
 type Props = {
@@ -11,13 +12,7 @@ type Props = {
 const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function appearsOnDate(b: ScheduleBlock, date: Date) {
-  const r = b.recurring ?? "none";
-  const dow = (date.getDay() + 6) % 7; // 0=Mon..6=Sun
-  if (r === "daily") return true;
-  if (r === "weekdays") return dow <= 4;
-  if (r === "weekly") return dow === 0; // anchor on Mondays for demo
-  // none → only the anchor day (1st of month for demo)
-  return date.getDate() === 1;
+  return blockAppearsOnDate(b, date);
 }
 
 export function MonthView({ monthDate, blocks, onPickDay }: Props) {

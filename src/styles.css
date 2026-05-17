@@ -41,6 +41,8 @@
   --color-slot-program-foreground: var(--slot-program-foreground);
   --color-slot-adpack: var(--slot-adpack);
   --color-slot-adpack-foreground: var(--slot-adpack-foreground);
+  --color-lane-program: var(--lane-program);
+  --color-lane-ad: var(--lane-ad);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -90,10 +92,12 @@
   --slot-blocked-foreground: oklch(0.4 0.02 260);
   --slot-conflict: oklch(0.88 0.12 30);
   --slot-conflict-foreground: oklch(0.4 0.2 27);
-  --slot-program: oklch(0.62 0.18 265);
+  --slot-program: oklch(0.58 0.2 265);
   --slot-program-foreground: oklch(0.99 0 0);
-  --slot-adpack: oklch(0.7 0.16 180);
-  --slot-adpack-foreground: oklch(0.2 0.05 200);
+  --slot-adpack: oklch(0.82 0.16 92);
+  --slot-adpack-foreground: oklch(0.28 0.1 85);
+  --lane-program: oklch(0.99 0.006 265);
+  --lane-ad: oklch(0.965 0.004 260);
 }
 
 .dark {
@@ -136,10 +140,12 @@
   --slot-blocked-foreground: oklch(0.7 0.02 260);
   --slot-conflict: oklch(0.4 0.18 30);
   --slot-conflict-foreground: oklch(0.95 0.1 40);
-  --slot-program: oklch(0.55 0.2 265);
+  --slot-program: oklch(0.62 0.2 265);
   --slot-program-foreground: oklch(0.99 0 0);
-  --slot-adpack: oklch(0.5 0.14 185);
-  --slot-adpack-foreground: oklch(0.97 0.04 180);
+  --slot-adpack: oklch(0.72 0.15 92);
+  --slot-adpack-foreground: oklch(0.2 0.06 85);
+  --lane-program: oklch(0.24 0.02 265);
+  --lane-ad: oklch(0.2 0.015 260);
 }
 
 @layer base {
