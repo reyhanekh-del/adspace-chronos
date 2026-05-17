@@ -62,14 +62,24 @@ function buildOccurrences(
   anchor: Date,
   rule: Recurrence,
   days: number[],
-  count: number
+  endMode: EndMode,
+  endDate: string,
+  endCount: number,
+  previewCap: number
 ): Date[] {
   const out: Date[] = [];
   const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
   if (rule === "none") return [start];
+  const limit =
+    endMode === "after" ? Math.min(previewCap, Math.max(1, endCount)) : previewCap;
+  const until =
+    endMode === "on" && endDate
+      ? new Date(`${endDate}T00:00:00`)
+      : null;
   let cursor = new Date(start);
   let safety = 0;
-  while (out.length < count && safety < 400) {
+  while (out.length < limit && safety < 800) {
+    if (until && cursor.getTime() > until.getTime()) break;
     const dow = cursor.getDay();
     let ok = false;
     if (rule === "daily") ok = true;
@@ -89,6 +99,8 @@ function buildOccurrences(
   return out;
 }
 
+type EndMode = "never" | "on" | "after";
+
 type Form = {
   programId: string; // "" = custom
   title: string;
@@ -99,9 +111,18 @@ type Form = {
   campaign: string;
   recurring: Recurrence;
   daysOfWeek: number[];
+  endMode: EndMode;
+  endDate: string; // YYYY-MM-DD
+  endCount: number;
   totalSlots: number;
   filledSlots: number;
 };
+
+function defaultEndDate(anchor: Date) {
+  const d = new Date(anchor);
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 const makeEmpty = (screenId: string, anchor: Date): Form => ({
   programId: "",
@@ -113,6 +134,9 @@ const makeEmpty = (screenId: string, anchor: Date): Form => ({
   campaign: "",
   recurring: "none",
   daysOfWeek: [anchor.getDay()],
+  endMode: "never",
+  endDate: defaultEndDate(anchor),
+  endCount: 10,
   totalSlots: 24,
   filledSlots: 0,
 });
@@ -144,6 +168,9 @@ export function ScheduleModal({
         campaign: initial.campaign ?? "",
         recurring: initial.recurring ?? "none",
         daysOfWeek: initial.daysOfWeek ?? [anchor.getDay()],
+        endMode: initial.recurrenceEnd ?? "never",
+        endDate: initial.recurrenceEndDate ?? defaultEndDate(anchor),
+        endCount: initial.recurrenceCount ?? 10,
         totalSlots: initial.totalSlots ?? 24,
         filledSlots: initial.filledSlots ?? 0,
       });
@@ -245,7 +272,15 @@ export function ScheduleModal({
 
   const anyConflict = Object.values(conflictMatrix).some(Boolean);
 
-  const occurrences = buildOccurrences(anchor, form.recurring, form.daysOfWeek, 6);
+  const occurrences = buildOccurrences(
+    anchor,
+    form.recurring,
+    form.daysOfWeek,
+    form.endMode,
+    form.endDate,
+    form.endCount,
+    form.endMode === "never" ? 6 : 50
+  );
 
   const totalGenerated =
     form.screenIds.length * form.slots.length * Math.max(1, occurrences.length);
@@ -277,6 +312,11 @@ export function ScheduleModal({
           campaign: form.campaign.trim() || undefined,
           recurring: form.recurring,
           daysOfWeek: needsDays ? form.daysOfWeek : undefined,
+          recurrenceEnd: form.recurring === "none" ? undefined : form.endMode,
+          recurrenceEndDate:
+            form.recurring !== "none" && form.endMode === "on" ? form.endDate : undefined,
+          recurrenceCount:
+            form.recurring !== "none" && form.endMode === "after" ? form.endCount : undefined,
           ...(form.type === "adpack"
             ? { totalSlots: form.totalSlots, filledSlots: filled, occupancy }
             : {}),
@@ -560,6 +600,68 @@ export function ScheduleModal({
               </div>
             )}
           </div>
+
+          {/* Recurrence end */}
+          {form.recurring !== "none" && (
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Ends
+              </Label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "never"}
+                    onChange={() => set("endMode", "never")}
+                    className="accent-primary"
+                  />
+                  <span>Never</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "on"}
+                    onChange={() => set("endMode", "on")}
+                    className="accent-primary"
+                  />
+                  <span className="w-16">On date</span>
+                  <Input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => {
+                      set("endDate", e.target.value);
+                      set("endMode", "on");
+                    }}
+                    className="h-8 w-44"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "after"}
+                    onChange={() => set("endMode", "after")}
+                    className="accent-primary"
+                  />
+                  <span className="w-16">After</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={form.endCount}
+                    onChange={(e) => {
+                      set("endCount", Math.max(1, Number(e.target.value) || 1));
+                      set("endMode", "after");
+                    }}
+                    className="h-8 w-20"
+                  />
+                  <span className="text-muted-foreground">occurrences</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Client/campaign */}
           <div className="grid grid-cols-2 gap-3">

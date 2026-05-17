@@ -23,6 +23,9 @@ export type ScheduleBlock = {
   filledSlots?: number;
   recurring?: "none" | "daily" | "weekdays" | "weekly" | "biweekly" | "monthly";
   daysOfWeek?: number[]; // 0=Sun..6=Sat, for weekly/biweekly
+  recurrenceEnd?: "never" | "on" | "after";
+  recurrenceEndDate?: string; // ISO date (YYYY-MM-DD) when end="on"
+  recurrenceCount?: number; // when end="after"
   campaign?: string;
 };
 
