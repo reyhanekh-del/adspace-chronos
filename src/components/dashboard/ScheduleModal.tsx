@@ -62,14 +62,24 @@ function buildOccurrences(
   anchor: Date,
   rule: Recurrence,
   days: number[],
-  count: number
+  endMode: EndMode,
+  endDate: string,
+  endCount: number,
+  previewCap: number
 ): Date[] {
   const out: Date[] = [];
   const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
   if (rule === "none") return [start];
+  const limit =
+    endMode === "after" ? Math.min(previewCap, Math.max(1, endCount)) : previewCap;
+  const until =
+    endMode === "on" && endDate
+      ? new Date(`${endDate}T00:00:00`)
+      : null;
   let cursor = new Date(start);
   let safety = 0;
-  while (out.length < count && safety < 400) {
+  while (out.length < limit && safety < 800) {
+    if (until && cursor.getTime() > until.getTime()) break;
     const dow = cursor.getDay();
     let ok = false;
     if (rule === "daily") ok = true;
@@ -89,6 +99,8 @@ function buildOccurrences(
   return out;
 }
 
+type EndMode = "never" | "on" | "after";
+
 type Form = {
   programId: string; // "" = custom
   title: string;
@@ -99,9 +111,18 @@ type Form = {
   campaign: string;
   recurring: Recurrence;
   daysOfWeek: number[];
+  endMode: EndMode;
+  endDate: string; // YYYY-MM-DD
+  endCount: number;
   totalSlots: number;
   filledSlots: number;
 };
+
+function defaultEndDate(anchor: Date) {
+  const d = new Date(anchor);
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 const makeEmpty = (screenId: string, anchor: Date): Form => ({
   programId: "",
@@ -113,6 +134,9 @@ const makeEmpty = (screenId: string, anchor: Date): Form => ({
   campaign: "",
   recurring: "none",
   daysOfWeek: [anchor.getDay()],
+  endMode: "never",
+  endDate: defaultEndDate(anchor),
+  endCount: 10,
   totalSlots: 24,
   filledSlots: 0,
 });
