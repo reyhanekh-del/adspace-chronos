@@ -272,7 +272,15 @@ export function ScheduleModal({
 
   const anyConflict = Object.values(conflictMatrix).some(Boolean);
 
-  const occurrences = buildOccurrences(anchor, form.recurring, form.daysOfWeek, 6);
+  const occurrences = buildOccurrences(
+    anchor,
+    form.recurring,
+    form.daysOfWeek,
+    form.endMode,
+    form.endDate,
+    form.endCount,
+    form.endMode === "never" ? 6 : 50
+  );
 
   const totalGenerated =
     form.screenIds.length * form.slots.length * Math.max(1, occurrences.length);
