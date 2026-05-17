@@ -312,6 +312,11 @@ export function ScheduleModal({
           campaign: form.campaign.trim() || undefined,
           recurring: form.recurring,
           daysOfWeek: needsDays ? form.daysOfWeek : undefined,
+          recurrenceEnd: form.recurring === "none" ? undefined : form.endMode,
+          recurrenceEndDate:
+            form.recurring !== "none" && form.endMode === "on" ? form.endDate : undefined,
+          recurrenceCount:
+            form.recurring !== "none" && form.endMode === "after" ? form.endCount : undefined,
           ...(form.type === "adpack"
             ? { totalSlots: form.totalSlots, filledSlots: filled, occupancy }
             : {}),
