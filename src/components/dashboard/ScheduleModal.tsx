@@ -596,6 +596,68 @@ export function ScheduleModal({
             )}
           </div>
 
+          {/* Recurrence end */}
+          {form.recurring !== "none" && (
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Ends
+              </Label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "never"}
+                    onChange={() => set("endMode", "never")}
+                    className="accent-primary"
+                  />
+                  <span>Never</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "on"}
+                    onChange={() => set("endMode", "on")}
+                    className="accent-primary"
+                  />
+                  <span className="w-16">On date</span>
+                  <Input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => {
+                      set("endDate", e.target.value);
+                      set("endMode", "on");
+                    }}
+                    className="h-8 w-44"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="end-mode"
+                    checked={form.endMode === "after"}
+                    onChange={() => set("endMode", "after")}
+                    className="accent-primary"
+                  />
+                  <span className="w-16">After</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={form.endCount}
+                    onChange={(e) => {
+                      set("endCount", Math.max(1, Number(e.target.value) || 1));
+                      set("endMode", "after");
+                    }}
+                    className="h-8 w-20"
+                  />
+                  <span className="text-muted-foreground">occurrences</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* Client/campaign */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
