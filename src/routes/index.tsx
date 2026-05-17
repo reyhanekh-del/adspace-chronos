@@ -204,12 +204,13 @@ function Dashboard() {
         screens={allScreens}
         existingBlocks={blocks}
         anchorDate={date}
-        onSave={(block) => {
+        onSave={(saved) => {
           setBlocks((prev) => {
-            const exists = prev.some((b) => b.id === block.id);
-            return exists ? prev.map((b) => (b.id === block.id ? block : b)) : [...prev, block];
+            const ids = new Set(saved.map((b) => b.id));
+            const kept = prev.filter((b) => !ids.has(b.id));
+            return [...kept, ...saved];
           });
-          setSelectedId(block.id);
+          if (saved[0]) setSelectedId(saved[0].id);
         }}
       />
 

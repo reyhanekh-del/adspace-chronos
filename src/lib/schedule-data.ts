@@ -21,9 +21,34 @@ export type ScheduleBlock = {
   occupancy?: number; // 0-100, for AdPacks
   totalSlots?: number;
   filledSlots?: number;
-  recurring?: "none" | "daily" | "weekdays" | "weekly";
+  recurring?: "none" | "daily" | "weekdays" | "weekly" | "biweekly" | "monthly";
+  daysOfWeek?: number[]; // 0=Sun..6=Sat, for weekly/biweekly
   campaign?: string;
 };
+
+export type Program = {
+  id: string;
+  name: string;
+  client: string;
+  campaign?: string;
+  durationHint?: number; // hours
+  category: "brand" | "news" | "entertainment" | "sports" | "lifestyle";
+};
+
+export const programs: Program[] = [
+  { id: "prg-1",  name: "Nike Air Launch",     client: "Nike",     campaign: "Air Max Drop",   durationHint: 3, category: "brand" },
+  { id: "prg-2",  name: "Apple Vision Pro",    client: "Apple",    campaign: "Vision Spring",  durationHint: 3, category: "brand" },
+  { id: "prg-3",  name: "Netflix Premiere",    client: "Netflix",  campaign: "New Releases",   durationHint: 4, category: "entertainment" },
+  { id: "prg-4",  name: "Tesla Cybertruck",    client: "Tesla",    campaign: "EV Showcase",    durationHint: 5, category: "brand" },
+  { id: "prg-5",  name: "Samsung Galaxy",      client: "Samsung",  campaign: "Galaxy Unpacked", durationHint: 4, category: "brand" },
+  { id: "prg-6",  name: "Sony PlayStation",    client: "Sony",     campaign: "PS Holiday",     durationHint: 5, category: "entertainment" },
+  { id: "prg-7",  name: "L'Oréal Spring",      client: "L'Oréal",  campaign: "Spring Beauty",  durationHint: 3, category: "lifestyle" },
+  { id: "prg-8",  name: "Toyota EV",           client: "Toyota",   campaign: "Beyond Zero",    durationHint: 4, category: "brand" },
+  { id: "prg-9",  name: "BTS World Tour",      client: "HYBE",     campaign: "World Tour 26",  durationHint: 4, category: "entertainment" },
+  { id: "prg-10", name: "ESPN Live Sports",    client: "ESPN",     campaign: "Game Night",     durationHint: 3, category: "sports" },
+  { id: "prg-11", name: "BBC News Hour",       client: "BBC",     campaign: "Top of Hour",    durationHint: 1, category: "news" },
+  { id: "prg-12", name: "Spotify Wrapped",     client: "Spotify",  campaign: "Year in Music",  durationHint: 2, category: "brand" },
+];
 
 export const screens: Screen[] = [
   { id: "scr-1", name: "Times Sq · North", location: "New York", resolution: "4K", online: true },
