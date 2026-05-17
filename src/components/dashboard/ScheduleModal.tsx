@@ -168,6 +168,9 @@ export function ScheduleModal({
         campaign: initial.campaign ?? "",
         recurring: initial.recurring ?? "none",
         daysOfWeek: initial.daysOfWeek ?? [anchor.getDay()],
+        endMode: initial.recurrenceEnd ?? "never",
+        endDate: initial.recurrenceEndDate ?? defaultEndDate(anchor),
+        endCount: initial.recurrenceCount ?? 10,
         totalSlots: initial.totalSlots ?? 24,
         filledSlots: initial.filledSlots ?? 0,
       });
