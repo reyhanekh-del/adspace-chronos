@@ -4,11 +4,7 @@ import {
   ScheduleConflictDetail,
 } from "@/lib/schedule-conflicts";
 
-export type ProgramConflictPatternKind =
-  | "daily"
-  | "interval"
-  | "weekdays"
-  | "specific_dates";
+export type ProgramConflictPatternKind = "daily" | "weekly" | "monthly";
 
 export type ProgramDemoConflict = ScheduleConflictDetail & {
   patternKind: ProgramConflictPatternKind;
@@ -17,10 +13,9 @@ export type ProgramDemoConflict = ScheduleConflictDetail & {
 };
 
 const PATTERN_LABELS: Record<ProgramConflictPatternKind, string> = {
-  daily: "Every day",
-  interval: "Every N days",
-  weekdays: "Selected weekdays",
-  specific_dates: "Specific dates",
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
 };
 
 function isoRangeDaily(start: string, count: number): string[] {
@@ -41,7 +36,7 @@ function buildOverlaps(dates: string[], slotLabels: string[]): ConflictOverlap[]
   }));
 }
 
-/** Four curated conflicts — one per schedule pattern — for the program scheduling demo */
+/** Four curated conflicts — one per repeating pattern family — for the program scheduling demo */
 export function buildProgramDemoConflicts(params: {
   currentProgramName: string;
   currentSlotLabels: string[];
@@ -56,7 +51,7 @@ export function buildProgramDemoConflicts(params: {
       : ["09:00 – 12:00", "10:00 – 13:00"];
 
   const dailyDates = isoRangeDaily("2026-05-01", 92);
-  const intervalDates = [
+  const everyThreeDayDates = [
     "2026-05-01",
     "2026-05-04",
     "2026-05-07",
@@ -84,12 +79,11 @@ export function buildProgramDemoConflicts(params: {
     "2026-05-28",
     "2026-05-30",
   ];
-  const specificDates = [
-    "2026-05-12",
-    "2026-05-24",
-    "2026-06-08",
-    "2026-07-01",
-    "2026-07-19",
+  const monthlyDates = [
+    "2026-05-20",
+    "2026-06-20",
+    "2026-07-20",
+    "2026-08-20",
   ];
 
   return [
@@ -113,13 +107,13 @@ export function buildProgramDemoConflicts(params: {
       ],
     },
     {
-      key: "demo-interval",
-      patternKind: "interval",
-      patternLabel: PATTERN_LABELS.interval,
+      key: "demo-daily-step",
+      patternKind: "daily",
+      patternLabel: "Every 3 days",
       screenId: "scr-8",
       screenName: screen("scr-8"),
       currentSlotLabels: slots,
-      overlaps: buildOverlaps(intervalDates, slots),
+      overlaps: buildOverlaps(everyThreeDayDates, slots),
       scheduledBlockId: "b19",
       scheduledProgramName: "Samsung Galaxy",
       scheduledProgramId: "prg-5",
@@ -133,9 +127,9 @@ export function buildProgramDemoConflicts(params: {
       ],
     },
     {
-      key: "demo-weekdays",
-      patternKind: "weekdays",
-      patternLabel: PATTERN_LABELS.weekdays,
+      key: "demo-weekly",
+      patternKind: "weekly",
+      patternLabel: PATTERN_LABELS.weekly,
       screenId: "scr-2",
       screenName: screen("scr-2"),
       currentSlotLabels: slots,
@@ -153,20 +147,21 @@ export function buildProgramDemoConflicts(params: {
       ],
     },
     {
-      key: "demo-specific",
-      patternKind: "specific_dates",
-      patternLabel: PATTERN_LABELS.specific_dates,
+      key: "demo-monthly",
+      patternKind: "monthly",
+      patternLabel: PATTERN_LABELS.monthly,
       screenId: "scr-2",
       screenName: screen("scr-2"),
       currentSlotLabels: slots,
-      overlaps: buildOverlaps(specificDates, slots),
+      overlaps: buildOverlaps(monthlyDates, slots),
       scheduledBlockId: "b8",
       scheduledProgramName: "Netflix Premiere",
       scheduledProgramId: "prg-3",
-      scheduledScheduleSummary: "5 specific dates · 19:00–23:00",
+      scheduledScheduleSummary: "Monthly (day 20) · 19:00–23:00",
       scheduledTimeRange: "19:00 – 23:00",
       scheduleLines: [
-        "Dates: May 12, May 24, Jun 8, Jul 1, Jul 19 (2026)",
+        "Pattern: Monthly on day 20",
+        "Months: May–Aug 2026",
         "Hours: 19:00 – 23:00",
       ],
     },

@@ -13,6 +13,8 @@ import {
   screens as allScreens,
   ScheduleBlock,
 } from "@/lib/schedule-data";
+import type { ScheduleCreateDraft } from "@/lib/schedule-create-draft";
+import { screenAllowsScheduleType } from "@/lib/schedule-create-draft";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -29,11 +31,12 @@ function Dashboard() {
   const [dark, setDark] = useState(false);
   const [view, setView] = useState<CalendarView>("day");
   const [conflict, setConflict] = useState<{
-    pending: { id: string; screenId: string; startHour: number };
+    pending: { id: string; screenId: string; startHour: number; laneKey: string };
     conflicting: ScheduleBlock[];
   } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorInitial, setEditorInitial] = useState<ScheduleBlock | null>(null);
+  const [createDraft, setCreateDraft] = useState<ScheduleCreateDraft | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -75,7 +78,7 @@ function Dashboard() {
     }
   }, [visibleBlocks, selectedId]);
 
-  const handleMove = (id: string, screenId: string, startHour: number) => {
+  const handleMove = (id: string, screenId: string, startHour: number, laneKey: string) => {
     const target = blocks.find((b) => b.id === id);
     if (!target) return;
     const duration = target.endHour - target.startHour;
@@ -92,16 +95,25 @@ function Dashboard() {
     );
 
     if (conflicting.length > 0) {
-      setConflict({ pending: { id, screenId, startHour }, conflicting });
+      setConflict({ pending: { id, screenId, startHour, laneKey }, conflicting });
       return;
     }
 
-    applyMove(id, screenId, startHour);
+    applyMove(id, screenId, startHour, false, laneKey);
   };
 
-  const applyMove = (id: string, screenId: string, startHour: number, markConflict = false) => {
-    setBlocks((prev) =>
-      prev.map((b) => {
+  const applyMove = (
+    id: string,
+    screenId: string,
+    startHour: number,
+    markConflict = false,
+    _laneKey: string
+  ) => {
+    setBlocks((prev) => {
+      const moving = prev.find((x) => x.id === id);
+      if (!moving) return prev;
+
+      return prev.map((b) => {
         if (b.id !== id) return b;
         const dur = b.endHour - b.startHour;
         return {
@@ -109,10 +121,11 @@ function Dashboard() {
           screenId,
           startHour,
           endHour: startHour + dur,
+          adBand: undefined,
           status: markConflict ? "conflict" : b.status === "conflict" ? "reserved" : b.status,
         };
-      })
-    );
+      });
+    });
   };
 
   const conflictScreen = conflict
@@ -134,6 +147,7 @@ function Dashboard() {
         conflicts={conflictsCount}
         onNew={() => {
           setEditorInitial(null);
+          setCreateDraft(null);
           setEditorOpen(true);
         }}
         screens={allScreens}
@@ -161,6 +175,13 @@ function Dashboard() {
             selectedId={selectedId}
             onSelect={selectBlock}
             onMove={handleMove}
+            onScheduleEmpty={(draft) => {
+              const screen = allScreens.find((s) => s.id === draft.screenId);
+              if (!screen || !screenAllowsScheduleType(screen, draft.scheduleType)) return;
+              setEditorInitial(null);
+              setCreateDraft(draft);
+              setEditorOpen(true);
+            }}
           />
         )}
         {view === "week" && (
@@ -191,15 +212,13 @@ function Dashboard() {
             block={selectedBlock}
             screen={selectedScreen}
             onClose={() => setSelectedId(null)}
-            onChange={(updated) =>
-              setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
-            }
             onDelete={(id) => {
               setBlocks((prev) => prev.filter((b) => b.id !== id));
               setSelectedId(null);
             }}
             onEdit={(b) => {
               setEditorInitial(b);
+              setCreateDraft(null);
               setEditorOpen(true);
             }}
           />
@@ -208,8 +227,12 @@ function Dashboard() {
 
       <ScheduleModal
         open={editorOpen}
-        onOpenChange={setEditorOpen}
+        onOpenChange={(open) => {
+          setEditorOpen(open);
+          if (!open) setCreateDraft(null);
+        }}
         initial={editorInitial}
+        createDraft={createDraft}
         screens={allScreens}
         existingBlocks={blocks}
         anchorDate={date}
@@ -220,6 +243,7 @@ function Dashboard() {
             return [...kept, ...saved];
           });
           if (saved[0]) setSelectedId(saved[0].id);
+          setCreateDraft(null);
         }}
       />
 
@@ -232,7 +256,13 @@ function Dashboard() {
         onCancel={() => setConflict(null)}
         onForce={() => {
           if (!conflict) return;
-          applyMove(conflict.pending.id, conflict.pending.screenId, conflict.pending.startHour, true);
+          applyMove(
+            conflict.pending.id,
+            conflict.pending.screenId,
+            conflict.pending.startHour,
+            true,
+            conflict.pending.laneKey
+          );
           setConflict(null);
         }}
       />

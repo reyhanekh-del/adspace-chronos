@@ -1,39 +1,38 @@
-import { ScheduleBlock, Screen } from "@/lib/schedule-data";
+import { programs, ScheduleBlock, Screen } from "@/lib/schedule-data";
+import { resolveProgramId } from "@/lib/schedule-conflicts";
+import { buildBlockScheduleDetails } from "@/lib/schedule-block-details";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Clock,
   Layers,
   Tv,
-  Repeat,
   Building2,
   AlertTriangle,
   Trash2,
-  CalendarOff,
   Sparkles,
   Pencil,
   X,
+  CalendarRange,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AdSlotAvailability } from "@/components/dashboard/AdSlotAvailability";
+import { Link } from "@tanstack/react-router";
 
 type Props = {
   block: ScheduleBlock;
   screen: Screen | null;
   onClose: () => void;
-  onChange: (b: ScheduleBlock) => void;
   onDelete: (id: string) => void;
   onEdit: (b: ScheduleBlock) => void;
 };
 
-export function DetailPanel({ block, screen, onClose, onChange, onDelete, onEdit }: Props) {
+export function DetailPanel({ block, screen, onClose, onDelete, onEdit }: Props) {
+  const scheduleRows = buildBlockScheduleDetails(block, screen);
+  const programId =
+    block.type === "program" ? resolveProgramId(block, programs) : null;
+
   return (
     <aside className="w-[340px] shrink-0 border-l bg-card flex flex-col h-full animate-in slide-in-from-right-4 duration-200">
       <div className="px-5 py-4 border-b flex items-center justify-between gap-2">
@@ -74,7 +73,7 @@ export function DetailPanel({ block, screen, onClose, onChange, onDelete, onEdit
                 ) : (
                   <Layers className="h-3 w-3 mr-1" />
                 )}
-                {block.type}
+                {block.type === "program" ? "Program" : "Ad"}
               </Badge>
               <StatusBadge status={block.status} />
             </div>
@@ -98,103 +97,83 @@ export function DetailPanel({ block, screen, onClose, onChange, onDelete, onEdit
 
           <Separator />
 
-          <div className="space-y-3">
-            <Row icon={<Tv className="h-4 w-4" />} label="Screen" value={screen?.name ?? "—"} />
-            <Row
-              icon={<Building2 className="h-4 w-4" />}
-              label="Location"
-              value={screen ? `${screen.location} · ${screen.resolution}` : "—"}
-            />
-            <Row
-              icon={<Clock className="h-4 w-4" />}
-              label="Time"
-              value={`${fmt(block.startHour)} – ${fmt(block.endHour)} (${(block.endHour - block.startHour).toFixed(1)}h)`}
-            />
-            {block.client && (
-              <Row icon={<Sparkles className="h-4 w-4" />} label="Client" value={block.client} />
-            )}
-          </div>
-
-          <Separator />
+          {(block.client || screen) && (
+            <div className="space-y-3">
+              {block.client && (
+                <Row icon={<Sparkles className="h-4 w-4" />} label="Client" value={block.client} />
+              )}
+              {screen && (
+                <Row
+                  icon={<Building2 className="h-4 w-4" />}
+                  label="Location"
+                  value={`${screen.location} · ${screen.resolution}`}
+                />
+              )}
+            </div>
+          )}
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
-              <Repeat className="h-3.5 w-3.5" /> Recurring
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3">
+              <CalendarRange className="h-3.5 w-3.5" />
+              Schedule
             </label>
-            <Select
-              value={block.recurring ?? "none"}
-              onValueChange={(v) => onChange({ ...block, recurring: v as ScheduleBlock["recurring"] })}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Does not repeat</SelectItem>
-                <SelectItem value="daily">Every day</SelectItem>
-                <SelectItem value="weekdays">Weekdays (Mon–Fri)</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-              </SelectContent>
-            </Select>
+            <dl className="space-y-3">
+              {scheduleRows.map((row) => (
+                <ScheduleRow key={row.label} label={row.label} value={row.value} />
+              ))}
+            </dl>
           </div>
 
-          {block.type === "adpack" && block.occupancy !== undefined && (
+          {block.type === "adpack" && screen?.adSupported && (
             <>
               <Separator />
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Slot Availability
-                  </label>
-                  <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-                    {block.filledSlots}/{block.totalSlots}
-                  </span>
-                </div>
-                <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      block.occupancy > 100
-                        ? "bg-destructive"
-                        : block.occupancy > 80
-                          ? "bg-slot-adpack"
-                          : "bg-slot-free-foreground"
-                    )}
-                    style={{ width: `${Math.min(100, block.occupancy)}%` }}
-                  />
-                </div>
-                <div className="mt-2 grid grid-cols-12 gap-0.5">
-                  {Array.from({ length: block.totalSlots ?? 0 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-3 rounded-sm",
-                        i < (block.filledSlots ?? 0) ? "bg-slot-adpack" : "bg-muted"
-                      )}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {block.occupancy > 100
-                    ? `Overbooked by ${(block.occupancy - 100).toFixed(0)}%`
-                    : `${(100 - block.occupancy).toFixed(0)}% capacity remaining`}
-                </p>
-              </div>
+              <AdSlotAvailability block={block} screen={screen} />
             </>
           )}
 
           <Separator />
 
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1">
-              <CalendarOff className="h-4 w-4 mr-1.5" /> Block
-            </Button>
+            {block.type === "program" && programId ? (
+              <Button variant="outline" className="flex-1" asChild>
+                <Link to="/programs/$programId" params={{ programId }}>
+                  <ExternalLink className="h-4 w-4 mr-1.5" />
+                  View Program
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" className="flex-1" onClick={() => onEdit(block)}>
+                <ExternalLink className="h-4 w-4 mr-1.5" />
+                View Ad
+              </Button>
+            )}
             <Button className="flex-1" onClick={() => onEdit(block)}>
-              <Pencil className="h-4 w-4 mr-1.5" /> Edit
+              <Pencil className="h-4 w-4 mr-1.5" />
+              Edit
             </Button>
           </div>
         </div>
       </div>
     </aside>
+  );
+}
+
+function ScheduleRow({ label, value }: { label: string; value: string }) {
+  const multiline = value.includes("\n");
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "text-sm font-medium mt-0.5 text-foreground",
+          multiline ? "whitespace-pre-line leading-relaxed" : "truncate"
+        )}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -225,10 +204,4 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
       </div>
     </div>
   );
-}
-
-function fmt(h: number) {
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }

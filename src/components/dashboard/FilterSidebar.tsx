@@ -1,4 +1,4 @@
-import { Monitor, MapPin, Layers, Search, Activity, Radio } from "lucide-react";
+import { Monitor, MapPin, Layers, Search, Radio } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -97,14 +97,6 @@ export function FilterSidebar(p: Props) {
             ))}
           </FilterGroup>
 
-          <Separator />
-
-          <FilterGroup icon={<Activity className="h-3.5 w-3.5" />} title="Slot Status">
-            <Legend swatch="bg-slot-free" label="Free" />
-            <Legend swatch="bg-slot-reserved" label="Reserved" />
-            <Legend swatch="bg-slot-blocked" label="Blocked" />
-            <Legend swatch="bg-slot-conflict" label="Conflict" />
-          </FilterGroup>
         </div>
       </ScrollArea>
     </aside>

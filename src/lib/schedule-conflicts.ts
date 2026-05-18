@@ -51,22 +51,62 @@ export function formatBlockScheduleSummary(block: ScheduleBlock): string {
   const r = block.recurring ?? "none";
   const time = `${hourToLabel(block.startHour)}–${hourToLabel(block.endHour)}`;
 
-  if (r === "daily") return `Every day · ${time}`;
+  if (r === "daily") {
+    const step = Math.max(1, block.programDailyStep ?? 1);
+    const cadence = step > 1 ? `Every ${step} days` : "Every day";
+    let tail = "";
+    if (block.recurrenceEnd === "never") {
+      tail = " (no end)";
+    } else if (block.recurrenceEnd === "after") {
+      tail = ` (${block.recurrenceCount ?? "?"} occurrences)`;
+    } else if (block.recurrenceEndDate) {
+      tail = ` until ${block.recurrenceEndDate}`;
+    }
+    return `${cadence}${tail} · ${time}`;
+  }
   if (r === "weekdays") return `Weekdays (Mon–Fri) · ${time}`;
   if (r === "weekly") {
+    const step = Math.max(1, block.programWeeklyStep ?? 1);
+    const prefix = step > 1 ? `[every ${step} weeks] ` : "";
     const days =
       block.daysOfWeek?.map((d) => WEEKDAY_SHORT[d]).join(", ") || "selected days";
+    if (block.recurrenceEnd === "never") return `${prefix}${days} · ${time}`;
+    if (block.recurrenceEnd === "after")
+      return `${prefix}${days} · ${block.weeklyOccurrenceCap ?? block.recurrenceCount ?? "?"} runs · ${time}`;
     const end = block.recurrenceEndDate ? ` until ${block.recurrenceEndDate}` : "";
-    return `${days}${end} · ${time}`;
+    return `${prefix}${days}${end} · ${time}`;
   }
   if (r === "specific_dates") {
     const n = block.specificDates?.length ?? 0;
     return `${n} specific date${n === 1 ? "" : "s"} · ${time}`;
   }
   if (r === "interval") {
-    return `Every ${block.intervalDays ?? 2} days · ${time}`;
+    const n = block.intervalDays ?? 2;
+    if (block.programIntervalEndMode === "never" || block.recurrenceEnd === "never")
+      return `Every ${n} days (open-ended) · ${time}`;
+    if (block.recurrenceEnd === "after")
+      return `Every ${n} days · ${block.recurrenceCount ?? "?"} runs · ${time}`;
+    return `Every ${n} days · ${time}`;
+  }
+  if (
+    r === "monthly" &&
+    block.programMonthStart &&
+    block.programMonthlyDays?.length
+  ) {
+    const step = Math.max(1, block.programMonthlyStep ?? 1);
+    const prefix = step > 1 ? `[every ${step} months] ` : "";
+    const days = block.programMonthlyDays.sort((a, b) => a - b).join(", ");
+    return `${prefix}Monthly (days ${days}, from ${block.programMonthStart})${
+      block.programMonthUntil ? ` – ${block.programMonthUntil}` : ""
+    } · ${time}`;
+  }
+  if (r === "monthly") {
+    return `Monthly · ${time}`;
   }
   if (r === "none") {
+    if (block.noneSpans?.length) {
+      return `${block.noneSpans.length} one-off window${block.noneSpans.length === 1 ? "" : "s"}`;
+    }
     const when = block.startDate ?? "single run";
     return `${when} · ${time}`;
   }

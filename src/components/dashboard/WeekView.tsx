@@ -1,7 +1,20 @@
 import { cn } from "@/lib/utils";
-import { Screen, ScheduleBlock, ScheduleType } from "@/lib/schedule-data";
+import {
+  Screen,
+  ScheduleBlock,
+  ScreenTimelineLane,
+  blocksForTimelineLane,
+  getScreenTimelineLanes,
+} from "@/lib/schedule-data";
 import { blockAppearsOnDate } from "@/lib/program-schedule";
-import { Layers, Tv, AlertTriangle, Repeat } from "lucide-react";
+import { scheduleBlockChipClasses } from "@/lib/schedule-block-styles";
+import {
+  SCREEN_ROW_STICKY_W,
+  SCREEN_ROW_RIBBON_W,
+  screenRowHeight,
+} from "@/lib/screen-row-layout";
+import { ScreenRowSidebar } from "@/components/dashboard/ScreenRowSidebar";
+import { Layers, Tv, Repeat } from "lucide-react";
 
 type Props = {
   weekStart: Date; // Monday
@@ -11,8 +24,6 @@ type Props = {
   onSelect: (b: ScheduleBlock) => void;
   onPickDay: (d: Date) => void;
 };
-
-type Lane = ScheduleType;
 
 const DAY_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_W = 168;
@@ -34,7 +45,7 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-background">
       <div className="flex border-b bg-card sticky top-0 z-20">
-        <div className="w-56 shrink-0 border-r px-4 py-3 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1.5">
+        <div className={cn(SCREEN_ROW_STICKY_W, "shrink-0 border-r px-4 py-3 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1.5")}>
           <Tv className="h-3.5 w-3.5" /> Screens
         </div>
         <div className="overflow-hidden flex-1">
@@ -71,127 +82,124 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
 
       <div className="flex-1 overflow-auto timeline-scroll">
         <div className="flex flex-col">
-          {screens.map((screen) => (
-            <div key={screen.id} className="flex border-b last:border-b-0">
-              <div className="w-56 shrink-0 border-r sticky left-0 z-20 flex bg-card shadow-[2px_0_8px_-2px_rgba(0,0,0,0.06)]">
-                <div
-                  className="flex-1 min-w-0 px-4 flex flex-col justify-center border-r border-border/40 bg-card"
-                  style={{ height: LANE_H * 2 }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full shrink-0",
-                        screen.online ? "bg-emerald-500" : "bg-muted-foreground/40"
-                      )}
-                    />
-                    <div className="font-medium text-sm truncate">{screen.name}</div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5 ml-4 truncate">
-                    {screen.location} · {screen.resolution}
-                  </div>
-                </div>
-                <div className="w-14 shrink-0 flex flex-col">
-                  <LaneLabel lane="program" />
-                  <LaneLabel lane="adpack" />
-                </div>
-              </div>
+          {screens.map((screen) => {
+            const lanes = getScreenTimelineLanes(screen);
+            const rowH = screenRowHeight(lanes.length, LANE_H);
 
-              <div className="flex flex-col" style={{ width: totalW }}>
-                <div className="flex">
-                  {days.map((d, i) => (
-                    <DayLaneCell
-                      key={`${screen.id}-program-${i}`}
-                      lane="program"
-                      day={d}
-                      dayIdx={i}
-                      screenId={screen.id}
-                      blocks={blocks}
-                      selectedId={selectedId}
-                      onSelect={onSelect}
-                      onPickDay={onPickDay}
-                    />
-                  ))}
+            return (
+              <div key={screen.id} className="flex border-b last:border-b-0">
+                <div
+                  className={cn(
+                    SCREEN_ROW_STICKY_W,
+                    "shrink-0 border-r sticky left-0 z-20 flex bg-card shadow-[2px_0_8px_-2px_rgba(0,0,0,0.06)]"
+                  )}
+                >
+                  <ScreenRowSidebar screen={screen} height={rowH} />
+                  <div className={cn(SCREEN_ROW_RIBBON_W, "shrink-0 flex flex-col")}>
+                    {lanes.map((lane, li) => (
+                      <WeekLaneRibbon
+                        key={lane.laneKey}
+                        lane={lane}
+                        laneH={LANE_H}
+                        isLastRibbon={li === lanes.length - 1}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="flex">
-                  {days.map((d, i) => (
-                    <DayLaneCell
-                      key={`${screen.id}-adpack-${i}`}
-                      lane="adpack"
-                      day={d}
-                      dayIdx={i}
-                      screenId={screen.id}
-                      blocks={blocks}
-                      selectedId={selectedId}
-                      onSelect={onSelect}
-                      onPickDay={onPickDay}
-                      isLast
-                    />
+
+                <div className="flex flex-col" style={{ width: totalW }}>
+                  {lanes.map((lane, li) => (
+                    <div key={lane.laneKey} className="flex">
+                      {days.map((d, i) => (
+                        <DayLaneCell
+                          key={`${screen.id}-${lane.laneKey}-${i}`}
+                          laneSpec={lane}
+                          day={d}
+                          screenId={screen.id}
+                          blocks={blocks}
+                          selectedId={selectedId}
+                          onSelect={onSelect}
+                          onPickDay={onPickDay}
+                          isLastTrack={li === lanes.length - 1}
+                        />
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function LaneLabel({ lane }: { lane: Lane }) {
-  const isProgram = lane === "program";
+function WeekLaneRibbon({
+  lane,
+  laneH,
+  isLastRibbon,
+}: {
+  lane: ScreenTimelineLane;
+  laneH: number;
+  isLastRibbon: boolean;
+}) {
+  const isProgram = lane.kind === "program";
 
   return (
     <div
       className={cn(
-        "px-2 flex flex-col justify-center border-b border-border/50 last:border-b-0",
-        isProgram ? "bg-lane-program" : "bg-lane-ad"
+        "px-1.5 flex flex-col justify-center border-b border-border/50 gap-0.5",
+        isProgram ? "bg-lane-program" : "bg-lane-ad",
+        isLastRibbon && "border-b-0"
       )}
-      style={{ height: LANE_H }}
+      style={{ height: laneH }}
     >
       <div
         className={cn(
-          "flex flex-col items-center gap-0.5 text-[9px] uppercase tracking-wider font-semibold leading-tight text-center",
+          "flex items-center gap-1 text-[9px] font-semibold leading-tight",
           isProgram ? "text-slot-program" : "text-slot-adpack"
         )}
       >
         {isProgram ? <Tv className="h-3 w-3 shrink-0" /> : <Layers className="h-3 w-3 shrink-0" />}
-        {isProgram ? "Programs" : "Ads"}
+        <span className="uppercase tracking-wide truncate">{lane.labelTitle}</span>
       </div>
     </div>
   );
 }
 
+function dayBlocksForLane(
+  blocks: ScheduleBlock[],
+  screenId: string,
+  laneSpec: ScreenTimelineLane,
+  day: Date
+) {
+  return blocksForTimelineLane(blocks, screenId, laneSpec)
+    .filter((b) => appearsOnDay(b, day))
+    .sort((a, b) => a.startHour - b.startHour);
+}
+
 function DayLaneCell({
-  lane,
+  laneSpec,
   day,
-  dayIdx,
   screenId,
   blocks,
   selectedId,
   onSelect,
   onPickDay,
-  isLast,
+  isLastTrack,
 }: {
-  lane: Lane;
+  laneSpec: ScreenTimelineLane;
   day: Date;
-  dayIdx: number;
   screenId: string;
   blocks: ScheduleBlock[];
   selectedId: string | null;
   onSelect: (b: ScheduleBlock) => void;
   onPickDay: (d: Date) => void;
-  isLast?: boolean;
+  isLastTrack?: boolean;
 }) {
-  const isProgram = lane === "program";
-  const dayBlocks = blocks
-    .filter(
-      (b) =>
-        b.screenId === screenId &&
-        b.type === lane &&
-        appearsOnDay(b, day)
-    )
-    .sort((a, b) => a.startHour - b.startHour);
+  const isProgram = laneSpec.kind === "program";
+  const dayBlocks = dayBlocksForLane(blocks, screenId, laneSpec, day);
 
   return (
     <button
@@ -199,7 +207,7 @@ function DayLaneCell({
       className={cn(
         "border-r last:border-r-0 px-1.5 py-1 text-left align-top hover:bg-accent/20 transition-colors flex flex-col gap-0.5 overflow-hidden",
         isProgram ? "bg-lane-program" : "bg-lane-ad",
-        !isLast && "border-b border-border/40"
+        !isLastTrack && "border-b border-border/40"
       )}
       style={{ width: DAY_W, height: LANE_H }}
     >
@@ -208,12 +216,7 @@ function DayLaneCell({
       ) : (
         <>
           {dayBlocks.slice(0, MAX_CHIPS).map((b) => (
-            <BlockChip
-              key={b.id}
-              block={b}
-              selected={selectedId === b.id}
-              onSelect={onSelect}
-            />
+            <BlockChip key={b.id} block={b} selected={selectedId === b.id} onSelect={onSelect} />
           ))}
           {dayBlocks.length > MAX_CHIPS && (
             <span className="text-[9px] text-muted-foreground px-0.5">
@@ -243,7 +246,7 @@ function BlockChip({
       }}
       className={cn(
         "rounded px-1 py-0.5 text-[10px] flex items-center gap-0.5 cursor-pointer transition-shadow hover:shadow-sm min-w-0",
-        chipStyles(block),
+        scheduleBlockChipClasses(block),
         selected && "ring-2 ring-ring"
       )}
     >
@@ -259,22 +262,11 @@ function BlockChip({
       {block.recurring && block.recurring !== "none" && (
         <Repeat className="h-2 w-2 ml-auto opacity-70 shrink-0" />
       )}
-      {block.status === "conflict" && (
-        <AlertTriangle className="h-2 w-2 text-destructive shrink-0" />
-      )}
     </span>
   );
 }
 
-function chipStyles(b: ScheduleBlock) {
-  if (b.status === "conflict")
-    return "bg-slot-conflict text-slot-conflict-foreground border border-destructive/40";
-  if (b.status === "blocked")
-    return "bg-slot-blocked text-slot-blocked-foreground border border-border";
-  if (b.type === "program")
-    return "bg-slot-program text-slot-program-foreground border border-slot-program/20";
-  return "bg-slot-adpack text-slot-adpack-foreground border border-slot-adpack/30";
-}
+
 
 function fmtHour(h: number) {
   const hh = Math.floor(h);
