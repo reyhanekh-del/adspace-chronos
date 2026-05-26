@@ -1,13 +1,16 @@
 import type { ScheduleBlock } from "@/lib/schedule-data";
 import { cn } from "@/lib/utils";
 
-/** Calendar blocks: program = blue, adpack = yellow (status does not change fill). */
-export function scheduleBlockSurfaceClasses(block: ScheduleBlock) {
+/** Calendar blocks: program = blue (ad-supported) or teal (ad-free), adpack = yellow. */
+export function scheduleBlockSurfaceClasses(block: ScheduleBlock, adSupported?: boolean) {
   if (block.type === "program") {
+    const adFree = adSupported === false;
     return {
-      bg: "bg-slot-program",
-      text: "text-slot-program-foreground",
-      border: "border border-slot-program/20",
+      bg: adFree ? "bg-slot-program-adfree" : "bg-slot-program",
+      text: adFree ? "text-slot-program-adfree-foreground" : "text-slot-program-foreground",
+      border: adFree
+        ? "border border-slot-program-adfree/20"
+        : "border border-slot-program/20",
     };
   }
   return {
@@ -17,7 +20,18 @@ export function scheduleBlockSurfaceClasses(block: ScheduleBlock) {
   };
 }
 
-export function scheduleBlockChipClasses(block: ScheduleBlock, selected?: boolean) {
-  const s = scheduleBlockSurfaceClasses(block);
+export function scheduleBlockChipClasses(
+  block: ScheduleBlock,
+  adSupported?: boolean,
+  selected?: boolean
+) {
+  const s = scheduleBlockSurfaceClasses(block, adSupported);
   return cn(s.bg, s.text, s.border, selected && "ring-2 ring-ring");
+}
+
+export function programSlotClasses(adSupported: boolean) {
+  const adFree = !adSupported;
+  return adFree
+    ? "bg-slot-program-adfree text-slot-program-adfree-foreground"
+    : "bg-slot-program text-slot-program-foreground";
 }

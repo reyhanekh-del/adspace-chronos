@@ -12,7 +12,7 @@ export function ScreenRowSidebar({ screen, height, className }: Props) {
   return (
     <div
       className={cn(
-        "flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col justify-center gap-0.5",
+        "flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col justify-start gap-0.5",
         "border-r border-border/40 bg-card px-3 py-2",
         className
       )}

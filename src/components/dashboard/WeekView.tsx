@@ -5,16 +5,21 @@ import {
   ScreenTimelineLane,
   blocksForTimelineLane,
   getScreenTimelineLanes,
+  screenAdBands,
 } from "@/lib/schedule-data";
+import { scheduleBlockTypeLabel } from "@/lib/schedule-block-labels";
+import { blockBandMismatch } from "@/lib/schedule-block-pairing";
 import { blockAppearsOnDate } from "@/lib/program-schedule";
 import { scheduleBlockChipClasses } from "@/lib/schedule-block-styles";
 import {
   SCREEN_ROW_STICKY_W,
   SCREEN_ROW_RIBBON_W,
   screenRowHeight,
+  timelineLaneHeight,
 } from "@/lib/screen-row-layout";
 import { ScreenRowSidebar } from "@/components/dashboard/ScreenRowSidebar";
-import { Layers, Tv, Repeat } from "lucide-react";
+import { ScheduleBlockTypeLabel } from "@/components/dashboard/ScheduleBlockTypeLabel";
+import { Layers, Tv } from "lucide-react";
 
 type Props = {
   weekStart: Date; // Monday
@@ -27,7 +32,6 @@ type Props = {
 
 const DAY_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_W = 168;
-const LANE_H = 56;
 const MAX_CHIPS = 2;
 
 function appearsOnDay(b: ScheduleBlock, day: Date) {
@@ -84,7 +88,7 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
         <div className="flex flex-col">
           {screens.map((screen) => {
             const lanes = getScreenTimelineLanes(screen);
-            const rowH = screenRowHeight(lanes.length, LANE_H);
+            const rowH = screenRowHeight(lanes, "week");
 
             return (
               <div key={screen.id} className="flex border-b last:border-b-0">
@@ -100,7 +104,8 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
                       <WeekLaneRibbon
                         key={lane.laneKey}
                         lane={lane}
-                        laneH={LANE_H}
+                        laneH={timelineLaneHeight(lane.kind, "week")}
+                        adSupported={screen.adSupported}
                         isLastRibbon={li === lanes.length - 1}
                       />
                     ))}
@@ -114,8 +119,11 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
                         <DayLaneCell
                           key={`${screen.id}-${lane.laneKey}-${i}`}
                           laneSpec={lane}
+                          laneH={timelineLaneHeight(lane.kind, "week")}
                           day={d}
                           screenId={screen.id}
+                          adSupported={screen.adSupported}
+                          screenBands={screen.adSupported ? screenAdBands(screen) : undefined}
                           blocks={blocks}
                           selectedId={selectedId}
                           onSelect={onSelect}
@@ -138,10 +146,12 @@ export function WeekView({ weekStart, screens, blocks, selectedId, onSelect, onP
 function WeekLaneRibbon({
   lane,
   laneH,
+  adSupported,
   isLastRibbon,
 }: {
   lane: ScreenTimelineLane;
   laneH: number;
+  adSupported: boolean;
   isLastRibbon: boolean;
 }) {
   const isProgram = lane.kind === "program";
@@ -158,7 +168,11 @@ function WeekLaneRibbon({
       <div
         className={cn(
           "flex items-center gap-1 text-[9px] font-semibold leading-tight",
-          isProgram ? "text-slot-program" : "text-slot-adpack"
+          isProgram
+            ? adSupported
+              ? "text-slot-program"
+              : "text-slot-program-adfree"
+            : "text-slot-adpack"
         )}
       >
         {isProgram ? <Tv className="h-3 w-3 shrink-0" /> : <Layers className="h-3 w-3 shrink-0" />}
@@ -181,8 +195,11 @@ function dayBlocksForLane(
 
 function DayLaneCell({
   laneSpec,
+  laneH,
   day,
   screenId,
+  adSupported,
+  screenBands,
   blocks,
   selectedId,
   onSelect,
@@ -190,8 +207,11 @@ function DayLaneCell({
   isLastTrack,
 }: {
   laneSpec: ScreenTimelineLane;
+  laneH: number;
   day: Date;
   screenId: string;
+  adSupported: boolean;
+  screenBands?: import("@/lib/schedule-data").AdBandCount;
   blocks: ScheduleBlock[];
   selectedId: string | null;
   onSelect: (b: ScheduleBlock) => void;
@@ -209,14 +229,23 @@ function DayLaneCell({
         isProgram ? "bg-lane-program" : "bg-lane-ad",
         !isLastTrack && "border-b border-border/40"
       )}
-      style={{ width: DAY_W, height: LANE_H }}
+      style={{ width: DAY_W, height: laneH }}
     >
       {dayBlocks.length === 0 ? (
         <span className="text-[10px] text-muted-foreground/50 px-0.5">—</span>
       ) : (
         <>
           {dayBlocks.slice(0, MAX_CHIPS).map((b) => (
-            <BlockChip key={b.id} block={b} selected={selectedId === b.id} onSelect={onSelect} />
+            <BlockChip
+              key={b.id}
+              block={b}
+              adSupported={adSupported}
+              screenBands={screenBands}
+              screenId={screenId}
+              allBlocks={blocks}
+              selected={selectedId === b.id}
+              onSelect={onSelect}
+            />
           ))}
           {dayBlocks.length > MAX_CHIPS && (
             <span className="text-[9px] text-muted-foreground px-0.5">
@@ -231,13 +260,25 @@ function DayLaneCell({
 
 function BlockChip({
   block,
+  adSupported,
+  screenBands,
+  screenId,
+  allBlocks,
   selected,
   onSelect,
 }: {
   block: ScheduleBlock;
+  adSupported: boolean;
+  screenBands?: import("@/lib/schedule-data").AdBandCount;
+  screenId: string;
+  allBlocks: ScheduleBlock[];
   selected: boolean;
   onSelect: (b: ScheduleBlock) => void;
 }) {
+  const typeLabel = scheduleBlockTypeLabel(block, adSupported, screenBands);
+  const screenBlocks = allBlocks.filter((b) => b.screenId === screenId);
+  const bandMismatch = blockBandMismatch(block, screenBlocks, adSupported, screenBands);
+
   return (
     <span
       onClick={(e) => {
@@ -245,23 +286,28 @@ function BlockChip({
         onSelect(block);
       }}
       className={cn(
-        "rounded px-1 py-0.5 text-[10px] flex items-center gap-0.5 cursor-pointer transition-shadow hover:shadow-sm min-w-0",
-        scheduleBlockChipClasses(block),
-        selected && "ring-2 ring-ring"
+        "relative rounded px-1 py-0.5 text-[10px] flex flex-col gap-0.5 cursor-pointer transition-shadow hover:shadow-sm min-w-0 overflow-hidden",
+        scheduleBlockChipClasses(block, adSupported, selected),
+        bandMismatch && block.type === "adpack" && "ring-2 ring-orange-500"
       )}
     >
-      {block.type === "program" ? (
-        <Tv className="h-2.5 w-2.5 shrink-0 opacity-80" />
-      ) : (
-        <Layers className="h-2.5 w-2.5 shrink-0 opacity-80" />
-      )}
-      <span className="font-mono tabular-nums opacity-80 shrink-0 text-[9px]">
+      <ScheduleBlockTypeLabel
+        block={block}
+        adSupported={adSupported}
+        screenBands={screenBands}
+        bandMismatch={!!bandMismatch}
+      />
+      <div className={cn("flex items-center gap-0.5 min-w-0", typeLabel && "pr-[2rem]")}>
+        {block.type === "program" ? (
+          <Tv className="h-2.5 w-2.5 shrink-0 opacity-80" />
+        ) : (
+          <Layers className="h-2.5 w-2.5 shrink-0 opacity-80" />
+        )}
+        <span className="truncate font-medium flex-1">{block.title}</span>
+      </div>
+      <span className="font-mono tabular-nums opacity-80 text-[9px]">
         {fmtHour(block.startHour)} – {fmtHour(block.endHour)}
       </span>
-      <span className="truncate font-medium">{block.title}</span>
-      {block.recurring && block.recurring !== "none" && (
-        <Repeat className="h-2 w-2 ml-auto opacity-70 shrink-0" />
-      )}
     </span>
   );
 }

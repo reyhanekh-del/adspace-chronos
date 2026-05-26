@@ -211,6 +211,7 @@ function Dashboard() {
           <DetailPanel
             block={selectedBlock}
             screen={selectedScreen}
+            allBlocks={blocks}
             onClose={() => setSelectedId(null)}
             onDelete={(id) => {
               setBlocks((prev) => prev.filter((b) => b.id !== id));

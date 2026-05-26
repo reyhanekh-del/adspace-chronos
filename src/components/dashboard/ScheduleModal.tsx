@@ -83,6 +83,14 @@ import {
   emptyFormFromCreateDraft,
   type ScheduleCreateDraft,
 } from "@/lib/schedule-create-draft";
+import {
+  detectScheduleBandConflicts,
+  editingBlockExcludeIds,
+  type ScheduleBandConflictDetail,
+} from "@/lib/schedule-block-pairing";
+import { buildBandDemoConflicts } from "@/lib/demo-band-conflicts";
+import { HourTimeSelect } from "@/components/dashboard/HourTimeSelect";
+import { hourToTimeString, normalizeHourOnlyTime } from "@/lib/hour-time";
 
 const HOUR_MARKS = [0, 3, 6, 9, 12, 15, 18, 21];
 const PREVIEW_OCCURRENCE_CAP = 2000;
@@ -107,11 +115,7 @@ const ALL_DAY_SLOT: Slot = { start: "00:00", end: "23:59" };
 const isAllDaySlot = (start: string, end: string) =>
   start === ALL_DAY_SLOT.start && end === ALL_DAY_SLOT.end;
 
-const hourToTime = (h: number) => {
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-};
+const hourToTime = (h: number, maxHour = 23) => hourToTimeString(h, maxHour);
 const timeToHour = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return (h || 0) + (m || 0) / 60;
@@ -284,6 +288,7 @@ export function ScheduleModal({
   const anchor = anchorDate ?? new Date();
   const [form, setForm] = useState<Form>(() => defaultDemoForm(screens, anchor));
   const [conflictExpanded, setConflictExpanded] = useState(false);
+  const [bandConflictExpanded, setBandConflictExpanded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPage, setPreviewPage] = useState(1);
   const [overlapModalConflict, setOverlapModalConflict] =
@@ -321,8 +326,8 @@ export function ScheduleModal({
     if (initial) {
       const isInitialProgram = initial.type === "program";
       const slot = {
-        start: hourToTime(initial.startHour),
-        end: hourToTime(initial.endHour),
+        start: normalizeHourOnlyTime(hourToTime(initial.startHour)),
+        end: normalizeHourOnlyTime(hourToTime(initial.endHour), 24),
       };
       const allDay = isInitialProgram && isAllDayHours(initial.startHour, initial.endHour);
       setForm({
@@ -430,7 +435,14 @@ export function ScheduleModal({
   const updateSlot = (i: number, patch: Partial<Slot>) =>
     setForm((p) => ({
       ...p,
-      slots: p.slots.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+      slots: p.slots.map((s, idx) => {
+        if (idx !== i) return s;
+        const next = { ...s, ...patch };
+        return {
+          start: normalizeHourOnlyTime(next.start),
+          end: normalizeHourOnlyTime(next.end, 24),
+        };
+      }),
     }));
 
   const addSlot = () => {
@@ -441,7 +453,10 @@ export function ScheduleModal({
       const end = Math.min(24, start + 1);
       return {
         ...p,
-        slots: [...p.slots, { start: hourToTime(start), end: hourToTime(end) }],
+        slots: [
+          ...p.slots,
+          { start: hourToTime(start), end: hourToTime(end, 24) },
+        ],
       };
     });
   };
@@ -570,6 +585,114 @@ export function ScheduleModal({
   ];
   const anyConflict = showConflictPanel && conflictCount > 0;
 
+  const bandCheckDrafts = useMemo((): ScheduleBlock[] => {
+    if (form.screenIds.length === 0) return [];
+
+    const baseId = initial?.id ?? "__band-draft__";
+    const drafts: ScheduleBlock[] = [];
+    let n = 0;
+
+    const isScheduleNone = form.programSchedule.schedulePattern === "none";
+    const slotRanges = isScheduleNone
+      ? noneProgramSegments.map((seg) => ({
+          startHour: seg.startHour,
+          endHour: Math.min(24, seg.endHour),
+        }))
+      : effectiveSlots.map((slot) => ({
+          startHour: timeToHour(slot.start),
+          endHour: timeToHour(slot.end),
+        }));
+
+    for (const sid of form.screenIds) {
+      const screen = screens.find((s) => s.id === sid);
+      if (!screen?.adSupported) continue;
+
+      for (const range of slotRanges) {
+        if (range.endHour <= range.startHour) continue;
+        drafts.push({
+          id: n === 0 ? baseId : `${baseId}-${n}`,
+          screenId: sid,
+          startHour: range.startHour,
+          endHour: range.endHour,
+          title: form.title,
+          type: form.type,
+          status: "reserved",
+          ...(isProgram && initial?.programLayout
+            ? { programLayout: initial.programLayout }
+            : {}),
+          ...(!isProgram && initial?.adPackBands
+            ? { adPackBands: initial.adPackBands }
+            : {}),
+          ...(!isProgram && initial?.adBand ? { adBand: initial.adBand } : {}),
+          ...(!isProgram && initial?.totalSlots
+            ? { totalSlots: initial.totalSlots }
+            : {}),
+        });
+        n++;
+      }
+    }
+
+    return drafts;
+  }, [
+    form.screenIds,
+    form.title,
+    form.type,
+    form.programSchedule.schedulePattern,
+    noneProgramSegments,
+    effectiveSlots,
+    screens,
+    initial?.id,
+    initial?.programLayout,
+    initial?.adPackBands,
+    initial?.adBand,
+    initial?.totalSlots,
+    isProgram,
+  ]);
+
+  const bandConflicts = useMemo((): ScheduleBandConflictDetail[] => {
+    if (bandCheckDrafts.length === 0) return [];
+    return detectScheduleBandConflicts({
+      drafts: bandCheckDrafts,
+      existingBlocks,
+      screens,
+      excludeBlockIds: editingBlockExcludeIds(existingBlocks, initial?.id),
+    });
+  }, [bandCheckDrafts, existingBlocks, screens, initial?.id]);
+
+  const hasAdSupportedScreens = useMemo(
+    () =>
+      form.screenIds.some(
+        (id) => screens.find((s) => s.id === id)?.adSupported
+      ),
+    [form.screenIds, screens]
+  );
+
+  const bandDemoConflicts = useMemo(
+    (): ScheduleBandConflictDetail[] =>
+      buildBandDemoConflicts({
+        schedulingType: form.type,
+        screens,
+      }),
+    [form.type, screens]
+  );
+
+  const displayedBandConflicts = useMemo((): ScheduleBandConflictDetail[] => {
+    if (bandConflicts.length > 0) return bandConflicts;
+    if (isEdit || isCreateFromSlot || !hasAdSupportedScreens) return [];
+    return bandDemoConflicts;
+  }, [
+    bandConflicts,
+    bandDemoConflicts,
+    isEdit,
+    isCreateFromSlot,
+    hasAdSupportedScreens,
+  ]);
+
+  const anyBandConflict = displayedBandConflicts.length > 0;
+  const bandConflictedScreenNames = [
+    ...new Set(displayedBandConflicts.map((c) => c.screenName)),
+  ];
+
   const previewResetKey = useMemo(
     () => JSON.stringify(form.programSchedule),
     [form.programSchedule]
@@ -580,12 +703,19 @@ export function ScheduleModal({
   }, [previewResetKey]);
 
   useEffect(() => {
-    if (!open) setConflictExpanded(false);
+    if (!open) {
+      setConflictExpanded(false);
+      setBandConflictExpanded(false);
+    }
   }, [open]);
 
   useEffect(() => {
     if (!anyConflict) setConflictExpanded(false);
   }, [anyConflict]);
+
+  useEffect(() => {
+    if (!anyBandConflict) setBandConflictExpanded(false);
+  }, [anyBandConflict]);
 
   const totalGenerated = useMemo(() => {
     if (form.programSchedule.schedulePattern === "none") {
@@ -1054,18 +1184,15 @@ export function ScheduleModal({
                     <span className="w-6 text-center font-mono text-[11px] text-muted-foreground">
                       {i + 1}
                     </span>
-                    <Input
-                      type="time"
+                    <HourTimeSelect
                       value={slot.start}
-                      onChange={(e) => updateSlot(i, { start: e.target.value })}
-                      className="h-8 w-32"
+                      onChange={(start) => updateSlot(i, { start })}
                     />
                     <span className="text-muted-foreground text-xs">→</span>
-                    <Input
-                      type="time"
+                    <HourTimeSelect
                       value={slot.end}
-                      onChange={(e) => updateSlot(i, { end: e.target.value })}
-                      className="h-8 w-32"
+                      allowEndOfDay
+                      onChange={(end) => updateSlot(i, { end })}
                     />
                     <HourTimelineBar
                       startHour={sh}
@@ -1202,6 +1329,109 @@ export function ScheduleModal({
                         </li>
                       );
                     })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {anyBandConflict && (
+            <div className="rounded-lg border border-amber-500/50 bg-amber-500/15 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setBandConflictExpanded((v) => !v)}
+                className="flex w-full items-center justify-between gap-2 p-3 text-left transition-colors hover:bg-amber-500/20"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Band conflicts detected
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold tabular-nums bg-amber-500/25 text-amber-950 dark:text-amber-100 px-2 py-0.5 rounded-full">
+                    {displayedBandConflicts.length} mismatch
+                    {displayedBandConflicts.length === 1 ? "" : "es"}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-amber-800/80 dark:text-amber-200/80 transition-transform shrink-0",
+                      bandConflictExpanded && "rotate-180"
+                    )}
+                  />
+                </div>
+              </button>
+
+              {bandConflictExpanded && (
+                <div className="border-t border-amber-500/25 px-3 pb-3 pt-2 space-y-3">
+                  {bandConflictedScreenNames.length > 0 && (
+                    <p className="text-[11px] text-amber-900/90 dark:text-amber-200/90">
+                      <span className="font-medium">Screens with band conflicts:</span>{" "}
+                      {bandConflictedScreenNames.join(", ")}
+                    </p>
+                  )}
+
+                  <ul className="space-y-2">
+                    {displayedBandConflicts.map((c) => (
+                      <li
+                        key={c.key}
+                        className="rounded-md border border-amber-500/30 bg-background/70 p-2.5 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-1">
+                            <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-950 dark:text-amber-100">
+                              {c.screenName} · {c.timeLabel}
+                            </span>
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {c.partnerTitle}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              {c.schedulingType === "program" ? (
+                                <>
+                                  Overlapping ad uses a{" "}
+                                  <span className="font-medium text-foreground/90">
+                                    {c.actual}b
+                                  </span>{" "}
+                                  pack; this program expects{" "}
+                                  <span className="font-medium text-foreground/90">
+                                    {c.expected}b
+                                  </span>
+                                  .
+                                </>
+                              ) : (
+                                <>
+                                  Overlapping program expects a{" "}
+                                  <span className="font-medium text-foreground/90">
+                                    {c.expected}b
+                                  </span>{" "}
+                                  pack; this ad is{" "}
+                                  <span className="font-medium text-foreground/90">
+                                    {c.actual}b
+                                  </span>
+                                  .
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          {c.partnerType === "program" && c.partnerProgramId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 shrink-0 gap-1 text-xs"
+                              asChild
+                            >
+                              <Link
+                                to="/programs/$programId"
+                                params={{ programId: c.partnerProgramId }}
+                                onClick={() => onOpenChange(false)}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                View program
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -1367,11 +1597,40 @@ export function ScheduleModal({
         </div>
 
         <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
-          {anyConflict && (
-            <p className="text-xs text-muted-foreground text-left w-full">
-              Overlapping time on the previously scheduled program will be removed on each
-              affected screen. The current program replaces those slots.
-            </p>
+          {(anyConflict || anyBandConflict) && (
+            <div className="rounded-lg border border-border/80 bg-muted/30 p-3 text-xs text-left w-full space-y-3">
+              {anyConflict && (
+                <div className="flex gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-destructive" />
+                  <p className="text-muted-foreground leading-relaxed">
+                    Overlapping time on the previously scheduled program will be removed on
+                    each affected screen. The current program replaces those slots.
+                  </p>
+                </div>
+              )}
+              {anyConflict && anyBandConflict && (
+                <div className="border-t border-border/60" />
+              )}
+              {anyBandConflict && (
+                <div className="space-y-2">
+                  <p className="font-medium text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    Band mismatch playback
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1.5 text-muted-foreground marker:text-orange-600/60 dark:marker:text-orange-400/60">
+                    <li>
+                      If the ad has more bands than the program supports, only the first bands
+                      up to the program&apos;s supported band count will be played, and the
+                      remaining bands will not be played.
+                    </li>
+                    <li>
+                      If the program has more bands than the ad, the available ad bands will be
+                      repeated until all program bands are filled.
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
           <div className="flex w-full justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

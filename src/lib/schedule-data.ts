@@ -3,6 +3,12 @@ export type ScheduleType = "program" | "adpack";
 /** One band = 6 slots (1 min pack); 2 bands = 12 (2 min); 3 bands = 18 (3 min). */
 export type AdBandCount = 1 | 2 | 3;
 
+/** Program slot layout on ad-supported screens (3-minute cycle). */
+export type AdSupportedProgramLayout =
+  | "full_ads"
+  | "content_1_ads_2"
+  | "content_2_ads_1";
+
 export type Screen = {
   id: string;
   name: string;
@@ -12,7 +18,7 @@ export type Screen = {
   tags: string[];
   /** When false, only the program strip is available (no ad inventory). */
   adSupported: boolean;
-  /** When `adSupported`, number of ad bands. `3` hides the program strip (ads only). */
+  /** When `adSupported`, number of ad bands (1–3). Does not affect lane layout. */
   adBands?: AdBandCount;
 };
 
@@ -160,10 +166,6 @@ export function getScreenTimelineLanes(screen: Screen): ScreenTimelineLane[] {
   if (!screen.adSupported) {
     return [{ laneKey: "program", kind: "program", labelTitle: "Programs" }];
   }
-  const bands = screenAdBands(screen);
-  if (bands === 3) {
-    return [{ laneKey: "adpack", kind: "adpack", labelTitle: "Ads" }];
-  }
   return [
     { laneKey: "program", kind: "program", labelTitle: "Programs" },
     { laneKey: "adpack", kind: "adpack", labelTitle: "Ads" },
@@ -199,6 +201,10 @@ export type ScheduleBlock = {
   occupancy?: number; // 0-100, for AdPacks
   totalSlots?: number;
   filledSlots?: number;
+  /** Ad-supported program slot layout (content vs ad bands in the 3-min cycle). */
+  programLayout?: AdSupportedProgramLayout;
+  /** Ad pack size: 1 / 2 / 3 bands (1–3 min). */
+  adPackBands?: AdBandCount;
   /** Optional: logical band placement when slicing a unified ad lane in data or exports. Not used by the UI layout. */
   adBand?: AdBandCount;
   recurring?:
@@ -279,36 +285,60 @@ const DEMO_START = "2026-05-01";
 const DEMO_END = "2026-07-31";
 
 export const initialBlocks: ScheduleBlock[] = [
-  { id: "b1", screenId: "scr-1", startHour: 6, endHour: 9, title: "Morning Brew Co.", type: "adpack", status: "reserved", client: "Brew Co.", occupancy: 82, totalSlots: 24, filledSlots: 20, recurring: "weekdays", campaign: "Q2 Awareness" },
-  { id: "b2", screenId: "scr-1", programId: "prg-1", startHour: 9, endHour: 12, title: "Nike Air Launch", type: "program", status: "reserved", client: "Nike", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END, campaign: "Air Max Drop" },
-  { id: "b3", screenId: "scr-1", startHour: 14, endHour: 17, title: "Local Mix · AdPack", type: "adpack", status: "reserved", occupancy: 45, totalSlots: 24, filledSlots: 11 },
-  { id: "b4", screenId: "scr-1", programId: "prg-3", startHour: 18, endHour: 22, title: "Netflix Premiere", type: "program", status: "reserved", client: "Netflix", recurring: "weekdays", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  // scr-1 · ad-supported (2 bands) — ads aligned under programs; 6–9 ad-only slot
+  { id: "b1", screenId: "scr-1", startHour: 6, endHour: 9, title: "Morning Brew Co.", type: "adpack", status: "reserved", client: "Brew Co.", adPackBands: 2, occupancy: 82, totalSlots: 12, filledSlots: 10, recurring: "weekdays", campaign: "Q2 Awareness" },
+  { id: "b2", screenId: "scr-1", programId: "prg-1", startHour: 9, endHour: 12, title: "Nike Air Launch", type: "program", status: "reserved", client: "Nike", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END, campaign: "Air Max Drop" },
+  { id: "b2a", screenId: "scr-1", startHour: 9, endHour: 12, title: "Nike · Ad Stack", type: "adpack", status: "reserved", client: "Nike", adPackBands: 2, occupancy: 88, totalSlots: 12, filledSlots: 11, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b3", screenId: "scr-1", programId: "prg-5", startHour: 14, endHour: 17, title: "Samsung Galaxy", type: "program", status: "reserved", client: "Samsung", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b3a", screenId: "scr-1", startHour: 14, endHour: 17, title: "Local Mix · AdPack", type: "adpack", status: "reserved", adPackBands: 2, occupancy: 45, totalSlots: 12, filledSlots: 11 },
+  { id: "b4", screenId: "scr-1", programId: "prg-3", startHour: 18, endHour: 22, title: "Netflix Premiere", type: "program", status: "reserved", client: "Netflix", programLayout: "content_2_ads_1", recurring: "weekdays", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b4a", screenId: "scr-1", startHour: 18, endHour: 22, title: "Netflix · Ad Stack", type: "adpack", status: "reserved", client: "Netflix", adPackBands: 2, occupancy: 62, totalSlots: 12, filledSlots: 7, recurring: "weekdays", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
 
-  { id: "b5", screenId: "scr-2", startHour: 0, endHour: 6, title: "Maintenance Window", type: "program", status: "reserved" },
-  { id: "b6", screenId: "scr-2", programId: "prg-2", startHour: 8, endHour: 11, title: "Apple Vision Pro", type: "program", status: "reserved", client: "Apple", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END, campaign: "Vision Spring" },
-  { id: "b7", screenId: "scr-2", startHour: 12, endHour: 15, title: "Lunch AdPack", type: "adpack", status: "reserved", occupancy: 100, totalSlots: 18, filledSlots: 18 },
-  { id: "b8", screenId: "scr-2", programId: "prg-3", startHour: 19, endHour: 23, title: "Netflix Premiere", type: "program", status: "reserved", client: "Netflix", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  // scr-2 · ad-supported (1 band)
+  { id: "b5", screenId: "scr-2", startHour: 0, endHour: 6, title: "Maintenance Window", type: "program", status: "reserved", programLayout: "content_2_ads_1" },
+  { id: "b5a", screenId: "scr-2", startHour: 0, endHour: 6, title: "Overnight Fill", type: "adpack", status: "reserved", adPackBands: 1, occupancy: 40, totalSlots: 6, filledSlots: 2 },
+  { id: "b6", screenId: "scr-2", programId: "prg-2", startHour: 8, endHour: 11, title: "Apple Vision Pro", type: "program", status: "reserved", client: "Apple", programLayout: "content_2_ads_1", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END, campaign: "Vision Spring" },
+  { id: "b6a", screenId: "scr-2", startHour: 8, endHour: 11, title: "Apple · Ad Stack", type: "adpack", status: "reserved", client: "Apple", adPackBands: 1, occupancy: 95, totalSlots: 6, filledSlots: 6, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b7", screenId: "scr-2", programId: "prg-12", startHour: 12, endHour: 15, title: "Spotify Wrapped", type: "program", status: "reserved", client: "Spotify", programLayout: "content_2_ads_1", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b7a", screenId: "scr-2", startHour: 12, endHour: 15, title: "Lunch AdPack", type: "adpack", status: "reserved", adPackBands: 1, occupancy: 100, totalSlots: 6, filledSlots: 6 },
+  { id: "b8", screenId: "scr-2", programId: "prg-3", startHour: 19, endHour: 23, title: "Netflix Premiere", type: "program", status: "reserved", client: "Netflix", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b8a", screenId: "scr-2", startHour: 19, endHour: 23, title: "Netflix · Ad Stack", type: "adpack", status: "reserved", client: "Netflix", adPackBands: 1, occupancy: 72, totalSlots: 6, filledSlots: 4, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
 
+  // scr-3 · ad-free
   { id: "b9", screenId: "scr-3", programId: "prg-6", startHour: 5, endHour: 10, title: "Sony PlayStation", type: "program", status: "reserved", client: "Sony", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
   { id: "b11", screenId: "scr-3", programId: "prg-8", startHour: 18, endHour: 24, title: "Toyota EV", type: "program", status: "reserved", client: "Toyota", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
 
-  // scr-4: ads-only · 3 bands on one unified ad strip (18 slots)
-  { id: "b12a", screenId: "scr-4", startHour: 6, endHour: 12, title: "UK Morning Pack", type: "adpack", status: "reserved", client: "Local Network", occupancy: 70, totalSlots: 18, filledSlots: 12 },
-  { id: "b12b", screenId: "scr-4", startHour: 13, endHour: 18, title: "Afternoon Block", type: "adpack", status: "reserved", occupancy: 50, totalSlots: 18, filledSlots: 9 },
-  { id: "b12c", screenId: "scr-4", startHour: 18, endHour: 23, title: "Premium Prime", type: "adpack", status: "reserved", client: "House", occupancy: 0, totalSlots: 18, filledSlots: 0 },
+  // scr-4 · ad-supported (3 bands)
+  { id: "b12p1", screenId: "scr-4", programId: "prg-11", startHour: 6, endHour: 12, title: "BBC News Hour", type: "program", status: "reserved", client: "BBC", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b12a", screenId: "scr-4", startHour: 6, endHour: 12, title: "UK Morning Pack", type: "adpack", status: "reserved", client: "Local Network", adPackBands: 3, occupancy: 70, totalSlots: 18, filledSlots: 12 },
+  { id: "b12p2", screenId: "scr-4", programId: "prg-7", startHour: 13, endHour: 18, title: "L'Oréal Spring", type: "program", status: "reserved", client: "L'Oréal", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b12b", screenId: "scr-4", startHour: 13, endHour: 18, title: "Afternoon Block", type: "adpack", status: "reserved", adPackBands: 3, occupancy: 50, totalSlots: 18, filledSlots: 9 },
+  { id: "b12p3", screenId: "scr-4", programId: "prg-9", startHour: 18, endHour: 23, title: "BTS World Tour", type: "program", status: "reserved", client: "HYBE", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b12c", screenId: "scr-4", startHour: 18, endHour: 23, title: "Premium Prime", type: "adpack", status: "reserved", client: "House", adPackBands: 3, occupancy: 0, totalSlots: 18, filledSlots: 0 },
 
-  { id: "b13", screenId: "scr-5", programId: "prg-7", startHour: 7, endHour: 10, title: "L'Oréal Spring", type: "program", status: "reserved", client: "L'Oréal", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
-  { id: "b14", screenId: "scr-5", startHour: 13, endHour: 18, title: "Eurozone AdPack", type: "adpack", status: "reserved", occupancy: 110, totalSlots: 20, filledSlots: 22, campaign: "Overbooked" },
+  // scr-5 · ad-supported (1 band)
+  { id: "b13", screenId: "scr-5", programId: "prg-7", startHour: 7, endHour: 10, title: "L'Oréal Spring", type: "program", status: "reserved", client: "L'Oréal", programLayout: "content_2_ads_1", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b13a", screenId: "scr-5", startHour: 7, endHour: 10, title: "L'Oréal · Ads", type: "adpack", status: "reserved", client: "L'Oréal", adPackBands: 1, occupancy: 80, totalSlots: 6, filledSlots: 5, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b14", screenId: "scr-5", programId: "prg-1", startHour: 13, endHour: 18, title: "Nike Air Launch", type: "program", status: "reserved", client: "Nike", programLayout: "content_2_ads_1", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b14a", screenId: "scr-5", startHour: 13, endHour: 18, title: "Eurozone AdPack", type: "adpack", status: "reserved", adPackBands: 1, occupancy: 110, totalSlots: 6, filledSlots: 7, campaign: "Overbooked" },
 
+  // scr-6 · ad-free
   { id: "b15", screenId: "scr-6", programId: "prg-10", startHour: 9, endHour: 13, title: "ESPN Live Sports", type: "program", status: "reserved", client: "ESPN", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
 
-  { id: "b17", screenId: "scr-7", programId: "prg-4", startHour: 6, endHour: 11, title: "Tesla Cybertruck", type: "program", status: "reserved", client: "Tesla", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
-  { id: "b18", screenId: "scr-7", startHour: 14, endHour: 19, title: "Sunset AdPack", type: "adpack", status: "reserved", occupancy: 78, totalSlots: 24, filledSlots: 19 },
+  // scr-7 · ad-supported (2 bands) — 11–14 ad-only gap
+  { id: "b17", screenId: "scr-7", programId: "prg-4", startHour: 6, endHour: 11, title: "Tesla Cybertruck", type: "program", status: "reserved", client: "Tesla", programLayout: "content_2_ads_1", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b17a", screenId: "scr-7", startHour: 6, endHour: 11, title: "Tesla · Ad Stack", type: "adpack", status: "reserved", client: "Tesla", adPackBands: 2, occupancy: 78, totalSlots: 12, filledSlots: 9, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b18", screenId: "scr-7", startHour: 11, endHour: 14, title: "Midday Fill", type: "adpack", status: "reserved", adPackBands: 2, occupancy: 50, totalSlots: 12, filledSlots: 6 },
+  { id: "b18p", screenId: "scr-7", programId: "prg-3", startHour: 14, endHour: 19, title: "Netflix Premiere", type: "program", status: "reserved", client: "Netflix", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b18a", screenId: "scr-7", startHour: 14, endHour: 19, title: "Sunset AdPack", type: "adpack", status: "reserved", adPackBands: 2, occupancy: 65, totalSlots: 12, filledSlots: 8, recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
 
-  // scr-8: same — single ad lane for full 18-slot inventory
-  { id: "b19a", screenId: "scr-8", startHour: 8, endHour: 13, title: "Gangnam AM Stack", type: "adpack", status: "reserved", client: "K-Retail Co.", occupancy: 90, totalSlots: 18, filledSlots: 11 },
-  { id: "b19b", screenId: "scr-8", startHour: 13, endHour: 17, title: "Lunch Carousel", type: "adpack", status: "reserved", occupancy: 40, totalSlots: 18, filledSlots: 6 },
-  { id: "b19c", screenId: "scr-8", startHour: 18, endHour: 24, title: "Prime Glow", type: "adpack", status: "reserved", client: "Music Promo", occupancy: 120, totalSlots: 18, filledSlots: 12, recurring: "weekdays", campaign: "Overbooked demo" },
+  // scr-8 · ad-supported (3 bands)
+  { id: "b19p1", screenId: "scr-8", programId: "prg-5", startHour: 8, endHour: 13, title: "Samsung Galaxy", type: "program", status: "reserved", client: "Samsung", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b19a", screenId: "scr-8", startHour: 8, endHour: 13, title: "Gangnam AM Stack", type: "adpack", status: "reserved", client: "K-Retail Co.", adPackBands: 3, occupancy: 90, totalSlots: 18, filledSlots: 11 },
+  { id: "b19p2", screenId: "scr-8", programId: "prg-12", startHour: 13, endHour: 17, title: "Spotify Wrapped", type: "program", status: "reserved", client: "Spotify", programLayout: "content_1_ads_2", recurring: "daily", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b19b", screenId: "scr-8", startHour: 13, endHour: 17, title: "Lunch Carousel", type: "adpack", status: "reserved", adPackBands: 2, occupancy: 40, totalSlots: 12, filledSlots: 6 },
+  { id: "b19p3", screenId: "scr-8", programId: "prg-9", startHour: 18, endHour: 24, title: "BTS World Tour", type: "program", status: "reserved", client: "HYBE", programLayout: "content_1_ads_2", recurring: "weekdays", startDate: DEMO_START, recurrenceEnd: "on", recurrenceEndDate: DEMO_END },
+  { id: "b19c", screenId: "scr-8", startHour: 18, endHour: 24, title: "Prime Glow", type: "adpack", status: "reserved", client: "Music Promo", adPackBands: 3, occupancy: 120, totalSlots: 18, filledSlots: 12, recurring: "weekdays", campaign: "Overbooked demo" },
 ];
 
 export const locations = Array.from(new Set(screens.map((s) => s.location)));

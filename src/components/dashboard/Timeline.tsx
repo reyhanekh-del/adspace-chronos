@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
+  AdBandCount,
   Screen,
   ScheduleBlock,
   ScheduleType,
@@ -8,21 +9,28 @@ import {
   blockLaneKey,
   blocksForTimelineLane,
   getScreenTimelineLanes,
+  screenAdBands,
 } from "@/lib/schedule-data";
+import { scheduleBlockTypeLabel } from "@/lib/schedule-block-labels";
+import {
+  blockBandMismatch,
+  mismatchHighlightOnAd,
+} from "@/lib/schedule-block-pairing";
 import { scheduleBlockSurfaceClasses } from "@/lib/schedule-block-styles";
 import {
   SCREEN_ROW_STICKY_W,
   SCREEN_ROW_RIBBON_W,
   screenRowHeight,
+  timelineLaneHeight,
 } from "@/lib/screen-row-layout";
 import { ScreenRowSidebar } from "@/components/dashboard/ScreenRowSidebar";
+import { ScheduleBlockTypeLabel } from "@/components/dashboard/ScheduleBlockTypeLabel";
 import type { ScheduleCreateDraft } from "@/lib/schedule-create-draft";
 import { hourOverlapsBlock } from "@/lib/schedule-create-draft";
-import { Plus, Repeat, Layers, Tv } from "lucide-react";
+import { Plus, Layers, Tv } from "lucide-react";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_W = 64;
-const TRACK_H = 60;
 
 type Props = {
   screens: Screen[];
@@ -109,7 +117,7 @@ export function Timeline({ screens, blocks, selectedId, onSelect, onMove, onSche
         <div className="flex flex-col">
           {screens.map((screen) => {
             const lanes = getScreenTimelineLanes(screen);
-            const rowH = screenRowHeight(lanes.length, TRACK_H);
+            const rowH = screenRowHeight(lanes, "day");
 
             return (
               <div key={screen.id} className="flex border-b last:border-b-0 group/row">
@@ -125,7 +133,8 @@ export function Timeline({ screens, blocks, selectedId, onSelect, onMove, onSche
                       <TimelineLaneRibbon
                         key={lane.laneKey}
                         lane={lane}
-                        trackH={TRACK_H}
+                        trackH={timelineLaneHeight(lane.kind, "day")}
+                        adSupported={screen.adSupported}
                         isLastRibbon={li === lanes.length - 1}
                       />
                     ))}
@@ -139,10 +148,12 @@ export function Timeline({ screens, blocks, selectedId, onSelect, onMove, onSche
                       laneKey={lane.laneKey}
                       laneKind={lane.kind}
                       screenId={screen.id}
+                      adSupported={screen.adSupported}
+                      screenBands={screen.adSupported ? screenAdBands(screen) : undefined}
                       blocks={blocksForTimelineLane(blocks, screen.id, lane)}
                       allBlocks={blocks}
                       hourW={HOUR_W}
-                      trackH={TRACK_H}
+                      trackH={timelineLaneHeight(lane.kind, "day")}
                       totalW={totalW}
                       selectedId={selectedId}
                       drag={drag}
@@ -169,10 +180,12 @@ export function Timeline({ screens, blocks, selectedId, onSelect, onMove, onSche
 function TimelineLaneRibbon({
   lane,
   trackH,
+  adSupported,
   isLastRibbon,
 }: {
   lane: ScreenTimelineLane;
   trackH: number;
+  adSupported: boolean;
   isLastRibbon: boolean;
 }) {
   const isProgram = lane.kind === "program";
@@ -189,7 +202,11 @@ function TimelineLaneRibbon({
       <div
         className={cn(
           "flex items-center gap-1 text-[9px] font-semibold leading-tight",
-          isProgram ? "text-slot-program" : "text-slot-adpack"
+          isProgram
+            ? adSupported
+              ? "text-slot-program"
+              : "text-slot-program-adfree"
+            : "text-slot-adpack"
         )}
       >
         {isProgram ? <Tv className="h-3 w-3 shrink-0" /> : <Layers className="h-3 w-3 shrink-0" />}
@@ -203,6 +220,8 @@ function TimelineTrack({
   laneKey,
   laneKind,
   screenId,
+  adSupported,
+  screenBands,
   blocks,
   allBlocks,
   hourW,
@@ -222,6 +241,8 @@ function TimelineTrack({
   laneKey: string;
   laneKind: ScheduleType;
   screenId: string;
+  adSupported: boolean;
+  screenBands?: AdBandCount;
   blocks: ScheduleBlock[];
   allBlocks: ScheduleBlock[];
   hourW: number;
@@ -335,6 +356,10 @@ function TimelineTrack({
         <Block
           key={b.id}
           block={b}
+          screenId={screenId}
+          adSupported={adSupported}
+          screenBands={screenBands}
+          allBlocks={allBlocks}
           hourW={hourW}
           compact={!!compactAd}
           selected={selectedId === b.id}
@@ -348,6 +373,10 @@ function TimelineTrack({
 
 function Block({
   block,
+  screenId,
+  adSupported,
+  screenBands,
+  allBlocks,
   hourW,
   compact,
   selected,
@@ -355,6 +384,10 @@ function Block({
   onDragStart,
 }: {
   block: ScheduleBlock;
+  screenId: string;
+  adSupported: boolean;
+  screenBands?: AdBandCount;
+  allBlocks: ScheduleBlock[];
   hourW: number;
   compact?: boolean;
   selected: boolean;
@@ -363,7 +396,16 @@ function Block({
 }) {
   const left = block.startHour * hourW;
   const width = (block.endHour - block.startHour) * hourW;
-  const styles = blockStyles(block);
+  const styles = scheduleBlockSurfaceClasses(block, adSupported);
+  const typeLabel = scheduleBlockTypeLabel(block, adSupported, screenBands);
+  const screenBlocks = allBlocks.filter((b) => b.screenId === screenId);
+  const bandMismatch = blockBandMismatch(block, screenBlocks, adSupported, screenBands);
+  const adMismatchSlice = mismatchHighlightOnAd(
+    block,
+    bandMismatch,
+    screenBlocks,
+    hourW
+  );
 
   return (
     <button
@@ -371,7 +413,7 @@ function Block({
       onDragStart={onDragStart}
       onClick={onClick}
       className={cn(
-        "absolute top-1.5 bottom-1.5 z-[2] rounded-md text-left px-2 py-1 transition-all overflow-hidden group/block",
+        "absolute top-1 bottom-1 z-[2] rounded-md text-left px-2 py-1.5 transition-all overflow-hidden group/block relative",
         "shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-grab active:cursor-grabbing",
         styles.bg,
         styles.text,
@@ -380,16 +422,31 @@ function Block({
       )}
       style={{ left, width }}
     >
-      <div className="flex items-center gap-1 min-w-0">
+      {adMismatchSlice && (
+        <span
+          className="absolute top-0 bottom-0 z-[2] pointer-events-none rounded-sm border-2 border-orange-500 bg-orange-500/10"
+          style={{ left: adMismatchSlice.left, width: adMismatchSlice.width }}
+          title={`Band mismatch: program expects ${bandMismatch!.expected}b, ad is ${bandMismatch!.actual}b`}
+        />
+      )}
+      <ScheduleBlockTypeLabel
+        block={block}
+        adSupported={adSupported}
+        screenBands={screenBands}
+        bandMismatch={!!bandMismatch}
+      />
+      <div
+        className={cn(
+          "flex items-center gap-1 min-w-0",
+          typeLabel && "pr-[2.35rem]"
+        )}
+      >
         {block.type === "program" ? (
           <Tv className="h-3 w-3 shrink-0 opacity-80" />
         ) : (
           <Layers className="h-3 w-3 shrink-0 opacity-80" />
         )}
         <span className="text-[11px] font-semibold truncate flex-1">{block.title}</span>
-        {block.recurring && block.recurring !== "none" && (
-          <Repeat className="h-2.5 w-2.5 shrink-0 opacity-70" />
-        )}
       </div>
       <div className="text-[9px] opacity-80 font-mono tabular-nums truncate">
         {fmtHour(block.startHour)} – {fmtHour(block.endHour)}
@@ -399,8 +456,8 @@ function Block({
       </div>
 
       {block.type === "adpack" && block.occupancy !== undefined && (
-        <div className="mt-1 flex items-center gap-1">
-          <div className="flex-1 h-1 rounded-full bg-black/15 dark:bg-white/15 overflow-hidden">
+        <div className="mt-0.5 flex items-center gap-1 min-h-[10px]">
+          <div className="flex-1 h-1 rounded-full bg-black/15 dark:bg-white/15 overflow-hidden shrink-0">
             <div
               className="h-full rounded-full bg-current"
               style={{ width: `${Math.min(100, block.occupancy)}%`, opacity: 0.85 }}
@@ -413,10 +470,6 @@ function Block({
       )}
     </button>
   );
-}
-
-function blockStyles(b: ScheduleBlock) {
-  return scheduleBlockSurfaceClasses(b);
 }
 
 function fmtHour(h: number) {

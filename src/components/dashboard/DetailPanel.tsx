@@ -1,4 +1,4 @@
-import { programs, ScheduleBlock, Screen } from "@/lib/schedule-data";
+import { programs, ScheduleBlock, Screen, screenAdBands } from "@/lib/schedule-data";
 import { resolveProgramId } from "@/lib/schedule-conflicts";
 import { buildBlockScheduleDetails } from "@/lib/schedule-block-details";
 import { Button } from "@/components/ui/button";
@@ -17,21 +17,38 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { programSlotClasses } from "@/lib/schedule-block-styles";
+import { scheduleBlockTypeTitle } from "@/lib/schedule-block-labels";
+import { blockBandMismatch } from "@/lib/schedule-block-pairing";
 import { AdSlotAvailability } from "@/components/dashboard/AdSlotAvailability";
 import { Link } from "@tanstack/react-router";
 
 type Props = {
   block: ScheduleBlock;
   screen: Screen | null;
+  allBlocks: ScheduleBlock[];
   onClose: () => void;
   onDelete: (id: string) => void;
   onEdit: (b: ScheduleBlock) => void;
 };
 
-export function DetailPanel({ block, screen, onClose, onDelete, onEdit }: Props) {
+export function DetailPanel({ block, screen, allBlocks, onClose, onDelete, onEdit }: Props) {
   const scheduleRows = buildBlockScheduleDetails(block, screen);
   const programId =
     block.type === "program" ? resolveProgramId(block, programs) : null;
+  const screenBands =
+    screen?.adSupported ? screenAdBands(screen) : undefined;
+  const typeTitle = scheduleBlockTypeTitle(
+    block,
+    screen?.adSupported ?? false,
+    screenBands
+  );
+  const screenBlocks = screen
+    ? allBlocks.filter((b) => b.screenId === screen.id)
+    : [];
+  const bandMismatch = screen
+    ? blockBandMismatch(block, screenBlocks, screen.adSupported, screenBands)
+    : null;
 
   return (
     <aside className="w-[340px] shrink-0 border-l bg-card flex flex-col h-full animate-in slide-in-from-right-4 duration-200">
@@ -64,7 +81,7 @@ export function DetailPanel({ block, screen, onClose, onDelete, onEdit }: Props)
                 className={cn(
                   "h-5 text-[10px] uppercase tracking-wider font-semibold",
                   block.type === "program"
-                    ? "bg-slot-program text-slot-program-foreground"
+                    ? programSlotClasses(screen?.adSupported ?? true)
                     : "bg-slot-adpack text-slot-adpack-foreground"
                 )}
               >
@@ -76,7 +93,26 @@ export function DetailPanel({ block, screen, onClose, onDelete, onEdit }: Props)
                 {block.type === "program" ? "Program" : "Ad"}
               </Badge>
               <StatusBadge status={block.status} />
+              {typeTitle && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "h-5 text-[10px] font-medium",
+                    bandMismatch &&
+                      "border-orange-500 bg-orange-500/15 text-orange-700 dark:text-orange-300"
+                  )}
+                >
+                  {typeTitle}
+                </Badge>
+              )}
             </div>
+            {bandMismatch && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-2 flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                Band mismatch: program expects {bandMismatch.expected}b pack, ad is{" "}
+                {bandMismatch.actual}b.
+              </p>
+            )}
             <h2 className="font-display text-xl font-semibold leading-tight">{block.title}</h2>
             {block.campaign && (
               <p className="text-sm text-muted-foreground mt-1">{block.campaign}</p>

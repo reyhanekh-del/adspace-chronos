@@ -63,9 +63,8 @@ export function formSeedFromCreateDraft(
   programSchedule: ReturnType<typeof defaultProgramSchedule>;
 } {
   const pad = (h: number) => {
-    const hh = Math.floor(h);
-    const mm = Math.round((h - hh) * 60);
-    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    const hh = Math.min(24, Math.max(0, Math.floor(h)));
+    return `${String(hh).padStart(2, "0")}:00`;
   };
 
   return {

@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { HourTimeSelect } from "@/components/dashboard/HourTimeSelect";
+import { normalizeHourOnlyTime } from "@/lib/hour-time";
 import {
   ProgramScheduleFields,
   ProgramSchedulePattern,
@@ -117,7 +119,15 @@ export function ProgramScheduleSection({ fields, onChange, anchor }: Props) {
   const updateNoneWindow = (idx: number, patch: Partial<(typeof fields.noneRepeatWindows)[0]>) =>
     set(
       "noneRepeatWindows",
-      fields.noneRepeatWindows.map((w, i) => (i === idx ? { ...w, ...patch } : w))
+      fields.noneRepeatWindows.map((w, i) => {
+        if (i !== idx) return w;
+        const next = { ...w, ...patch };
+        return {
+          ...next,
+          startTime: normalizeHourOnlyTime(next.startTime),
+          endTime: normalizeHourOnlyTime(next.endTime),
+        };
+      })
     );
 
   const removeNoneWindow = (idx: number) => {
@@ -204,13 +214,9 @@ export function ProgramScheduleSection({ fields, onChange, anchor }: Props) {
                       }
                       className="h-8 flex-1 min-w-[8.5rem]"
                     />
-                    <Input
-                      type="time"
+                    <HourTimeSelect
                       value={w.startTime}
-                      onChange={(e) =>
-                        updateNoneWindow(i, { startTime: e.target.value })
-                      }
-                      className="h-8 w-[6.75rem]"
+                      onChange={(startTime) => updateNoneWindow(i, { startTime })}
                     />
                   </div>
                 </div>
@@ -225,13 +231,9 @@ export function ProgramScheduleSection({ fields, onChange, anchor }: Props) {
                       }
                       className="h-8 flex-1 min-w-[8.5rem]"
                     />
-                    <Input
-                      type="time"
+                    <HourTimeSelect
                       value={w.endTime}
-                      onChange={(e) =>
-                        updateNoneWindow(i, { endTime: e.target.value })
-                      }
-                      className="h-8 w-[6.75rem]"
+                      onChange={(endTime) => updateNoneWindow(i, { endTime })}
                     />
                   </div>
                 </div>
